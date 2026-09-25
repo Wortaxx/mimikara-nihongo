@@ -20,8 +20,9 @@ Everything runs in the browser and is stored on the device. It works offline, an
 
 - [Features](#features)
   - [Home screen](#home-screen)
-  - [Practice drills](#practice-drills-練習)
-  - [Learning tools](#learning-tools-学ぶ)
+  - [Episodes and importing](#episodes-and-importing)
+  - [Practice drills](#practice-drills-練習): [Mixed](#mixed-practice-ミックス練習) · [Dictation](#dictation-書き取り) · [Fill in the blank](#fill-in-the-blank-穴埋め) · [Order](#sentence-order-並べ替え) · [Listening](#listening-聞き取り) · [Grammar](#grammar-文法) · [Shadowing](#shadowing-シャドーイング) · [Word cards](#word-cards-単語カード) · [Summary](#round-summary-結果)
+  - [Learning tools](#learning-tools-学ぶ): [Reader](#reader-読む) · [Furigana](#furigana) · [Word details](#word-details) · [Grammar details](#grammar-details) · [Vocabulary](#vocabulary-単語帳) · [Grammar list](#grammar-list-文法リスト)
   - [Progress](#progress-記録)
   - [Anki](#anki)
   - [Settings](#settings-設定)
@@ -47,71 +48,151 @@ Everything runs in the browser and is stored on the device. It works offline, an
 
 <p>
   <img src="docs/screenshots/01-home.png" width="240" alt="Home">
-  <img src="docs/screenshots/03-add-episode.png" width="240" alt="Episode shelf with the add card">
   <img src="docs/screenshots/02-home-practice.png" width="240" alt="Practice modes">
 </p>
 
 - **Anime / Audiobook tabs** (アニメ / オーディオブック). Each tab has its own episodes, drills and stats.
 - **Today's progress.** A ring shows today's answers against your daily goal, next to the number of sentences practised, your accuracy, the sentences due for review and your day streak (日連続). Tap the card to open the [progress screen](#progress-記録).
-- **Episode shelf** (エピソード). Tap an episode to include or exclude it from the drills; excluded episodes are dimmed. The last card, **＋ エピソードを追加** ("add episode"), imports new `.zip` packs, and you can pick several at once.
 - **Difficulty filter** (むずかしさ: easy / normal / hard). The script gives each sentence a difficulty level. The number on the right is how many sentences match your filters.
+- **Practice** (練習) and **Learn** (学ぶ) open the drills and tools described below.
+
+### Episodes and importing
+
+<p>
+  <img src="docs/screenshots/03-add-episode.png" width="240" alt="Episode shelf with the add card">
+</p>
+
+- Each episode card shows a frame from the episode, the number of sentences and how much you have practised.
+- Tap an episode to include or exclude it from the drills; excluded episodes are dimmed.
+- The last card, **＋ エピソードを追加** ("add episode"), imports new `.zip` packs, and you can pick several at once. See [Import the packs](#5-import-the-packs).
 
 ### Practice drills (練習)
 
-Every drill plays the real clip of the line. You can replay it (もう一度), slow it down to 75 % (ゆっくり), or hide the video and keep only the audio (映像). Each round has 5, 10 or 20 questions, and you get a summary at the end.
+Every drill plays the real clip of the line. You can replay it (もう一度), slow it down to 75 % (ゆっくり), or hide the video and keep only the audio (映像). Each round has 5, 10 or 20 questions.
 
-<p>
-  <img src="docs/screenshots/04-dictation.png" width="240" alt="Dictation">
-  <img src="docs/screenshots/05-fill-blank.png" width="240" alt="Fill in the blank">
-  <img src="docs/screenshots/06-order.png" width="240" alt="Sentence ordering">
-</p>
-<p>
-  <img src="docs/screenshots/07-listening.png" width="240" alt="Listening">
-  <img src="docs/screenshots/08-grammar.png" width="240" alt="Grammar question">
-  <img src="docs/screenshots/08b-grammar-answer.png" width="240" alt="Grammar answer with explanation">
-</p>
-<p>
-  <img src="docs/screenshots/09-shadowing.png" width="240" alt="Shadowing">
-  <img src="docs/screenshots/10-round-summary.png" width="240" alt="Round summary">
-  <img src="docs/screenshots/17-word-card-front.png" width="240" alt="Word card">
-</p>
-
-| Drill | What you do |
-|---|---|
-| **Mixed** (ミックス練習) | A random mix of the sentence drills below (everything except word cards), weighted towards dictation and grammar. |
-| **Dictation** (書き取り) | Listen and type the line in kanji or kana, either is accepted. You get a score, and each word is coloured green, orange or red. There are three hints: the length and first kana, then a ○○○ outline, then the translation. |
-| **Fill in the blank** (穴埋め) | One content word is missing; pick it from four options. Words you have not marked as known come up first. |
-| **Order** (並べ替え) | Tap the phrase blocks in the right order. |
-| **Listening** (聞き取り) | Choose which of four sentences you heard. Only similar-length sentences are used as distractors. |
-| **Grammar** (文法) | A grammar pattern is highlighted in the line; choose what it means. Only the JLPT levels enabled in Settings are asked. |
-| **Shadowing** (シャドーイング) | Record yourself after the clip or together with it. You get scores for **intonation** (your pitch curve against the character's), **rhythm** and **pronunciation**. The pronunciation score uses the browser's speech recognition, so it needs an internet connection. |
-| **Word cards** (単語カード) | Vocabulary flashcards. See the word, reveal the reading, meanings and a real line from the anime where it appears, then choose *knew it* (わかった) or *didn't* (わからなかった). **✓ 覚えた** marks the word as known so it never comes back. |
-
-After each answer the full line is shown, with the speaker, the translation, the grammar patterns and their JLPT level, and an **Anki** button. Tap any word to see its meaning, and any grammar chip for an explanation.
+**＋ Anki** in the top-right corner of every drill saves the current line for Anki, even before you answer. After each answer the full line is shown, with the speaker, the translation, the grammar patterns and their JLPT level. Tap any word to see its meaning, and any grammar chip for an explanation.
 
 **Spaced repetition.** Sentences and words you get right come back later and later, up to 120 days. Mistakes come back after 10 minutes. Sentences that are due, or that you often get wrong, are picked more often.
 
-**＋ Anki** in the top-right corner of every drill saves the current line for Anki. It is available before you answer, too.
+#### Mixed practice (ミックス練習)
 
-### Learning tools (学ぶ)
+A random mix of the sentence drills below (everything except word cards), weighted towards dictation and grammar. It is the big button at the top of 練習.
+
+#### Dictation (書き取り)
 
 <p>
-  <img src="docs/screenshots/11-reader.png" width="240" alt="Reader">
-  <img src="docs/screenshots/13-word-sheet.png" width="240" alt="Word details">
-  <img src="docs/screenshots/14-grammar-sheet.png" width="240" alt="Grammar details">
+  <img src="docs/screenshots/04-dictation.png" width="240" alt="Dictation">
 </p>
+
+Listen and type the line in kanji or kana, either is accepted. You get a score, and each word is coloured green (right), orange (close) or red (wrong). There are three hints (ヒント): the length and first kana, then a ○○○ outline of the sentence, then the translation.
+
+#### Fill in the blank (穴埋め)
+
 <p>
-  <img src="docs/screenshots/15-vocabulary.png" width="240" alt="Vocabulary list">
-  <img src="docs/screenshots/16-grammar-list.png" width="240" alt="JLPT grammar list">
+  <img src="docs/screenshots/05-fill-blank.png" width="240" alt="Fill in the blank">
+</p>
+
+One content word is missing; pick it from four options. Words you have not marked as known come up first.
+
+#### Sentence order (並べ替え)
+
+<p>
+  <img src="docs/screenshots/06-order.png" width="240" alt="Sentence ordering">
+</p>
+
+Tap the phrase blocks in the right order. Tap a block in the answer to put it back, or **リセット** to start again.
+
+#### Listening (聞き取り)
+
+<p>
+  <img src="docs/screenshots/07-listening.png" width="240" alt="Listening">
+</p>
+
+Choose which of four sentences you heard. The wrong options are sentences of a similar length, so you have to really listen.
+
+#### Grammar (文法)
+
+<p>
+  <img src="docs/screenshots/08-grammar.png" width="240" alt="Grammar question">
+  <img src="docs/screenshots/08b-grammar-answer.png" width="240" alt="Grammar answer with explanation">
+</p>
+
+A grammar pattern is highlighted in the line; choose what it means. After answering you get a short explanation, and **くわしく** opens the full grammar page. Only the JLPT levels enabled in Settings are asked.
+
+#### Shadowing (シャドーイング)
+
+<p>
+  <img src="docs/screenshots/09-shadowing.png" width="240" alt="Shadowing">
+</p>
+
+Record yourself repeating the line, either after the clip (クリップのあとに言う) or together with it (クリップといっしょに言う, earphones recommended). You get scores for **intonation** (your pitch curve against the character's), **rhythm** and **pronunciation**. The pronunciation score uses the browser's speech recognition, so it needs an internet connection.
+
+#### Word cards (単語カード)
+
+<p>
+  <img src="docs/screenshots/17-word-card-front.png" width="240" alt="Word card">
   <img src="docs/screenshots/18-word-card-back.png" width="240" alt="Word card answer">
 </p>
 
-- **Reader** (読む). The whole episode line by line, with timestamps and speakers. Play any line, listen to the whole episode continuously (通して聞く), show or hide the translation (翻訳), send a line to Anki (＋) or shadow it (🎤).
-- **Word details.** Tap any word anywhere in the app to see its dictionary form, reading, part of speech, meanings (JMdict, in English), how often it appears, and example lines with audio. **覚えた？** marks it as known.
-- **Grammar details.** Each pattern has its JLPT level, a short explanation, a link to [IMABI](https://imabi.org/) for a full lesson (in English) and every line in your episodes that uses it.
-- **Vocabulary** (単語帳). Every word from your episodes, most frequent first, filtered by episode and by *not yet* (まだ), *known* (覚えた) or *all* (すべて), with a progress bar of known words.
-- **Grammar list** (文法リスト). 560 patterns from N5 to N1. For each level it shows how many appear in your episodes, and it can be filtered to those that appear.
-- **Furigana** (optional, off by default). When turned on in Settings, readings appear above the kanji in every sentence.
+Vocabulary flashcards made from the words in your episodes, most frequent first. See the word, tap **答えを見る** to reveal the reading, meanings and a real line from the anime where it appears (with its clip), then choose *knew it* (わかった) or *didn't* (わからなかった). **✓ 覚えた** marks the word as known so it never comes back. The home screen shows how many words are due today.
+
+#### Round summary (結果)
+
+<p>
+  <img src="docs/screenshots/10-round-summary.png" width="240" alt="Round summary">
+</p>
+
+At the end of each round: your score and every line you practised, with ✓, ✗ or ― (close). **もう1ラウンド** starts another round.
+
+### Learning tools (学ぶ)
+
+#### Reader (読む)
+
+<p>
+  <img src="docs/screenshots/11-reader.png" width="240" alt="Reader">
+</p>
+
+The whole episode line by line, with timestamps and speakers. Play any line, listen to the whole episode continuously (通して聞く), show or hide the translation (翻訳), send a line to Anki (＋) or shadow it (🎤).
+
+#### Furigana
+
+<p>
+  <img src="docs/screenshots/12-furigana.png" width="240" alt="Reader with furigana">
+</p>
+
+Optional, and off by default. When turned on in Settings (ふりがなを表示する), readings appear above the kanji in every sentence in the app.
+
+#### Word details
+
+<p>
+  <img src="docs/screenshots/13-word-sheet.png" width="240" alt="Word details">
+</p>
+
+Tap any word anywhere in the app to see its dictionary form, reading, part of speech, meanings (JMdict, in English), how often it appears, and example lines with audio. **覚えた？** marks it as known.
+
+#### Grammar details
+
+<p>
+  <img src="docs/screenshots/14-grammar-sheet.png" width="240" alt="Grammar details">
+</p>
+
+Each pattern has its JLPT level, a short explanation, a link to [IMABI](https://imabi.org/) for a full lesson (in English) and every line in your episodes that uses it.
+
+#### Vocabulary (単語帳)
+
+<p>
+  <img src="docs/screenshots/15-vocabulary.png" width="240" alt="Vocabulary list">
+</p>
+
+Every word from your episodes, most frequent first, filtered by episode and by *not yet* (まだ), *known* (覚えた) or *all* (すべて), with a progress bar of known words.
+
+#### Grammar list (文法リスト)
+
+<p>
+  <img src="docs/screenshots/16-grammar-list.png" width="240" alt="JLPT grammar list">
+</p>
+
+560 patterns from N5 to N1. For each level it shows how many appear in your episodes, and it can be filtered to those that appear (エピソードに出たものだけ).
 
 ### Progress (記録)
 
@@ -119,6 +200,8 @@ After each answer the full line is shown, with the speaker, the translation, the
   <img src="docs/screenshots/19-stats.png" width="240" alt="Progress overview">
   <img src="docs/screenshots/20-stats-accuracy.png" width="240" alt="Accuracy by drill">
 </p>
+
+Open it by tapping the progress card on the home screen (記録を見る).
 
 - Totals: questions answered, days practised, current streak, best streak, known words and words seen in word cards.
 - **Last 30 days**: one bar per day with your daily goal as a dashed line. Bars that reach the goal are highlighted, and tapping a bar shows that day's count.
@@ -134,7 +217,9 @@ After each answer the full line is shown, with the speaker, the translation, the
 Any line can become an Anki card, with the clip on the front and the sentence, translation, word meanings, grammar and source on the back. There are two ways to get cards into Anki:
 
 1. **Export an `.apkg`** from the Anki screen (Anki カード). Choose whether the front shows the video alone or the video plus the sentence, and whether the video plays inside the card (AnkiDroid) or in a separate window (desktop Anki). **＋ まちがえた文をまとめて追加** adds every line you have got wrong in one go.
-2. **Send cards directly to AnkiDroid** when you tap ＋, with no files involved. AnkiDroid then syncs them to AnkiWeb and desktop Anki. See [Set up Anki](#6-set-up-anki).
+2. **Send cards directly to AnkiDroid** when you tap ＋, with no files involved. AnkiDroid then syncs them to AnkiWeb and desktop Anki.
+
+Step-by-step instructions for both are in [Set up Anki](#6-set-up-anki).
 
 ### Settings (設定)
 
@@ -142,6 +227,8 @@ Any line can become an Anki card, with the clip on the front and the sentence, t
   <img src="docs/screenshots/22-settings.png" width="240" alt="Settings">
   <img src="docs/screenshots/24-settings-backup.png" width="240" alt="Episodes and backup">
 </p>
+
+Open it with the ⚙ button on the home screen.
 
 | Setting | Meaning |
 |---|---|
@@ -153,14 +240,16 @@ Any line can become an Anki card, with the clip on the front and the sentence, t
 | 文法クイズのレベル | JLPT levels used in the grammar drill. |
 | AnkiDroid に直接追加 | Send cards straight to AnkiDroid. |
 | アニメ／オーディオブック | Your imported episodes and chapters, with **削除** to delete them and buttons to import more. |
-| バックアップ | Save or restore your progress. |
+| バックアップ | Save or restore your progress. See [Back up your progress](#7-back-up-your-progress). |
 
 ### Audiobooks (オーディオブック)
 
-The audiobook tab works the same way, using clips cut from a narrated book. It also has:
+The audiobook tab works the same way, using clips cut from a narrated book instead of anime. It also has:
 
 - **Paragraph listening** (段落リスニング). Listen to a whole paragraph without text, then reveal the text (文字を見る) and rate how much you understood.
 - **Chapter reader.** Read and listen paragraph by paragraph.
+
+How to create audiobook packs is explained in [Create audiobook packs](#3-create-audiobook-packs-optional).
 
 ---
 
