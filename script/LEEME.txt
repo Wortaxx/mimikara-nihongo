@@ -1,0 +1,82 @@
+耳から日本語 — cómo generar los paquetes de episodios en tu PC
+============================================================
+
+La carpeta del proyecto
+-----------------------
+Es la carpeta que contiene "script" y "app". Puedes moverla a donde quieras
+(por ejemplo C:\Japones). Los scripts no dependen de su ubicación:
+leen los vídeos/audios de la carpeta que les indiques y guardan los .zip en
+  <proyecto>\paquetes\anime\...        y   <proyecto>\paquetes\audiolibros\...
+Con --salida "otra\carpeta" puedes guardarlos en otro sitio.
+En los comandos de abajo, cambia  cd /d E:\Anime\Frieren\FrierenJP\script  por la ruta nueva.
+
+1) Instalar (una sola vez). Abre "Anaconda Prompt" y escribe:
+
+   cd /d E:\Anime\Frieren\FrierenJP\script
+   pip install -r requirements.txt
+
+2) Procesar los episodios:
+
+   python run_all.py "E:\Anime\Frieren"
+
+   - Empareja cada vídeo (S01E01, S02E03...) con su subtítulo japonés.
+   - Crea un .zip por episodio en  <proyecto>\paquetes\anime\<nombre de la serie>
+   - Tarda unos minutos por episodio. Si lo cortas, al volver a lanzarlo
+     se salta los que ya estén hechos.
+   - Para hacer solo algunos:  python run_all.py "E:\Anime\Frieren" --solo S01E01 S01E02
+
+3) Pasar los .zip al móvil (cable USB, Google Drive, etc.) e importarlos
+   en la app con "Importar episodio (.zip)". Cada episodio ocupa unos 20 MB.
+
+Qué hace el script con cada episodio
+------------------------------------
+- Limpia los subtítulos japoneses (nombres de personaje, canciones, efectos).
+- Junta las líneas seguidas del mismo personaje en una sola frase (un solo clip).
+  El personaje se reconoce por el nombre entre paréntesis del subtítulo japonés y por el
+  "Actor" de los subtítulos del vídeo. Si no se sabe quién habla, solo junta cuando la frase
+  queda claramente a medias. Para no juntar nada:  --no-unir
+- Para volver a crear episodios que ya tienen .zip (por ejemplo tras una mejora):  --rehacer
+- Calcula solo el desfase entre subtítulos y vídeo.
+- Divide cada frase en palabras (fugashi + UniDic), con lectura y furigana.
+- Busca el significado en JMdict (jmdict_min.db, en inglés).
+- Detecta ~35 estructuras gramaticales (grammar.py; se pueden añadir más).
+- Toma la traducción de los subtítulos que vienen dentro del .mkv: en español si los hay;
+  si no, en inglés (la app lo marca como 翻訳（英語）); si no hay ninguno, sin traducción.
+- Corta un clip de vídeo (360p) de cada frase.
+
+Probar la app en el PC
+----------------------
+   cd /d E:\Anime\Frieren\FrierenJP\app
+   python -m http.server 8000
+   Abre http://localhost:8000 en Chrome. Funciona todo, micrófono incluido.
+
+Gramática (JLPT N5–N1)
+----------------------
+- La lista completa está en grammar_jlpt.py: nivel, explicación en japonés, patrón de
+  detección y enlace a la lección de IMABI.
+- Si cambias grammar_jlpt.py, ejecuta  python export_grammar.py "..\app\grammar_ja.js"  para regenerar
+  app\grammar_ja.js (y vuelve a procesar los episodios para que se detecten los cambios).
+
+AUDIOLIBRO (sección オーディオブック de la app)
+===============================================
+1) Instalar una vez (además de lo anterior):
+   pip install faster-whisper
+
+2) Procesar el audiolibro (una carpeta con un archivo de audio por capítulo):
+   python audiobook.py "C:\Audiolibros\MiLibro\mp3"
+
+   - Transcribe cada capítulo con Whisper (la primera vez descarga el modelo, ~1,5 GB).
+   - Divide el texto en frases y en párrafos (段落) según las pausas del narrador.
+   - Crea un .zip por capítulo en  <proyecto>\paquetes\audiolibros\<título del libro>
+   - La transcripción se guarda en esa carpeta, en _transcripciones, así que si repites
+     el proceso (por ejemplo, tras una mejora del script con --rehacer) no vuelve a transcribir.
+
+   Opciones útiles:
+     --solo 2 3          procesa solo esos capítulos (el número del archivo: "- 02 -", "- 03 -")
+     --modelo small      mucho más rápido pero con más errores (por defecto: large-v3-turbo)
+     --rehacer           vuelve a crear los .zip aprovechando la transcripción guardada
+
+   Consejo: prueba primero con el capítulo más corto (--solo 2) para ver cuánto tarda
+   en tu PC. En CPU, large-v3-turbo suele ir entre 1x y 3x la velocidad del audio.
+
+3) En la app: pestaña オーディオブック → "オーディオブックの章を読み込む（.zip）".

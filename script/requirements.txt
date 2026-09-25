@@ -1,0 +1,6 @@
+fugashi
+unidic-lite
+pysubs2
+numpy
+imageio-ffmpeg
+faster-whisper
