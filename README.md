@@ -300,7 +300,7 @@ Listen to a whole paragraph **without seeing the text**, as many times as you li
   <img src="docs/screenshots/28-book-reader.png" width="260" alt="Audiobook chapter reader">
 </p>
 
-The whole chapter, grouped by paragraph. Play from any sentence and it continues on its own, jump between paragraphs with ⏮ ⏭, listen to one paragraph (聞く) or practise it (練習). **文字をかくす** hides the text so you can listen first, and **ゆっくり** slows the audio down.
+The whole chapter, grouped by paragraph. **最初から聞く** plays the chapter from start to finish, sentence by sentence: the current sentence is highlighted and the page scrolls along with it. Tap any sentence to continue from there, step back or forward one sentence with ⏮ ⏭, listen to a single paragraph (聞く) or practise it (練習). **文字をかくす** hides the text so you can listen first, and **ゆっくり** slows the audio down.
 
 ---
 
