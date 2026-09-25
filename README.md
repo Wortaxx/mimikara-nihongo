@@ -6,12 +6,6 @@
 
 ### Learn Japanese by ear, from the anime and audiobooks you actually watch and listen to.
 
-![PWA](https://img.shields.io/badge/PWA-works_offline-5A0FC8?style=for-the-badge&logo=pwa&logoColor=white)
-![Vanilla JS](https://img.shields.io/badge/JavaScript-no_build_step-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
-![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![Anki](https://img.shields.io/badge/Anki-%26_AnkiDroid-235390?style=for-the-badge&logo=anki&logoColor=white)
-![JLPT](https://img.shields.io/badge/JLPT-N5_to_N1-BC002D?style=for-the-badge)
-
 [**Features**](#-features) · [**Quick start**](#-quick-start) · [**Setup guide**](#-setup-guide) · [**Anki**](#6-set-up-anki) · [**FAQ**](#-faq)
 
 <br>
@@ -503,6 +497,15 @@ This uses [AnkiConnect Android](https://github.com/KamWithK/AnkiconnectAndroid),
 <br>
 
 The script prints the videos it could not match with a Japanese subtitle. Check that both files contain the episode code (`S01E05` or `S1 - 05`) and that the Japanese subtitle's name does not contain `.en.`, `.eng.`, `.es.` or `.spa.`.
+
+</details>
+
+<details>
+<summary><b><code>OMP: Error #15</code> when processing an audiobook.</b></summary>
+
+<br>
+
+This happens with Anaconda, whose `numpy` and faster-whisper each ship their own copy of the OpenMP runtime. `audiobook.py` already sets `KMP_DUPLICATE_LIB_OK=TRUE` to allow it; if you still see the error with an old copy of the script, run `set KMP_DUPLICATE_LIB_OK=TRUE` in the same terminal first.
 
 </details>
 
