@@ -16,6 +16,9 @@ Pasos por capítulo:
     <carpeta del proyecto>\\paquetes\\audiolibros\\<título>\\<ID>_<nn>.zip  (o en --salida)
 """
 import argparse, json, os, re, subprocess, sys, time, zipfile, shutil
+# Anaconda (numpy/MKL) y faster-whisper (ctranslate2) traen cada uno su libiomp5md.dll;
+# sin esto, al cargar Whisper sale "OMP: Error #15" y el programa se cierra.
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT = os.path.dirname(HERE)  # la carpeta que contiene "script" (y "app")
 sys.path.insert(0, HERE)

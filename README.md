@@ -38,6 +38,7 @@ A Python script on your PC cuts every subtitle line into its own clip, analyses 
 | 📚 | **Dictionary and grammar** | Tap any word for its meaning (JMdict); 560 JLPT grammar patterns from N5 to N1 with examples. |
 | 📊 | **Progress** | Daily goal, streaks, a 30-day chart and accuracy for each drill. |
 | 🗂️ | **Anki** | Turn any line into an Anki card with its video, via `.apkg` or straight into AnkiDroid. |
+| 📕 | **Audiobooks** | Japanese audiobooks become the same drills, plus paragraph listening and a paragraph-by-paragraph reader. |
 | 💾 | **Backup** | Save and restore your progress as a small file. |
 
 ---
@@ -48,7 +49,8 @@ A Python script on your PC cuts every subtitle line into its own clip, analyses 
   - [Home screen](#home-screen) · [Episodes and importing](#episodes-and-importing)
   - [Practice drills](#practice-drills-練習): [Mixed](#mixed-practice-ミックス練習) · [Dictation](#dictation-書き取り) · [Fill in the blank](#fill-in-the-blank-穴埋め) · [Order](#sentence-order-並べ替え) · [Listening](#listening-聞き取り) · [Grammar](#grammar-文法) · [Shadowing](#shadowing-シャドーイング) · [Word cards](#word-cards-単語カード) · [Summary](#round-summary-結果)
   - [Learning tools](#learning-tools-学ぶ): [Reader](#reader-読む) · [Furigana](#furigana) · [Word details](#word-details) · [Grammar details](#grammar-details) · [Vocabulary](#vocabulary-単語帳) · [Grammar list](#grammar-list-文法リスト)
-  - [Progress](#progress-記録) · [Anki](#anki) · [Settings](#settings-設定) · [Audiobooks](#audiobooks-オーディオブック)
+  - [Progress](#progress-記録) · [Anki](#anki) · [Settings](#settings-設定)
+  - [Audiobooks](#audiobooks-オーディオブック): [Audiobook tab](#audiobook-tab) · [Paragraph listening](#paragraph-listening-段落リスニング) · [Chapter reader](#chapter-reader-読む)
 - [🚀 Quick start](#-quick-start)
 - [🔧 Setup guide](#-setup-guide)
   - [1. Install the PC tools](#1-install-the-pc-tools)
@@ -275,12 +277,30 @@ Open it with the ⚙ button on the home screen.
 
 ### Audiobooks (オーディオブック)
 
-The audiobook tab works the same way, using clips cut from a narrated book instead of anime. It also has:
+#### Audiobook tab
 
-- **Paragraph listening** (段落リスニング). Listen to a whole paragraph without text, then reveal the text (文字を見る) and rate how much you understood.
-- **Chapter reader.** Read and listen paragraph by paragraph.
+<p align="center">
+  <img src="docs/screenshots/25-audiobook-home.png" width="260" alt="Audiobook tab">
+</p>
 
-How to create audiobook packs is explained in [Create audiobook packs](#3-create-audiobook-packs-optional).
+The オーディオブック tab works like the anime one, but with audio clips cut from a narrated book. Each chapter (章) has its own card with the book title, and the script also splits every chapter into paragraphs (段落) using the narrator's pauses. All the drills work here too, plus paragraph listening. How to create the packs is explained in [Create audiobook packs](#3-create-audiobook-packs-optional).
+
+#### Paragraph listening (段落リスニング)
+
+<p align="center">
+  <img src="docs/screenshots/26-paragraph-listening.png" width="260" alt="Paragraph listening">&nbsp;&nbsp;
+  <img src="docs/screenshots/27-paragraph-text.png" width="260" alt="Paragraph with its text revealed">
+</p>
+
+Listen to a whole paragraph **without seeing the text**, as many times as you like; the dots show which sentence is playing. Then tap **文字を見る** to reveal it: every sentence can be replayed, sent to Anki or shadowed, and the paragraph's grammar patterns are listed underneath. Finally rate how much you understood (**分からない** / **だいたい** / **よく分かった**), which feeds the spaced repetition.
+
+#### Chapter reader (読む)
+
+<p align="center">
+  <img src="docs/screenshots/28-book-reader.png" width="260" alt="Audiobook chapter reader">
+</p>
+
+The whole chapter, grouped by paragraph. Play from any sentence and it continues on its own, jump between paragraphs with ⏮ ⏭, listen to one paragraph (聞く) or practise it (練習). **文字をかくす** hides the text so you can listen first, and **ゆっくり** slows the audio down.
 
 ---
 
