@@ -375,7 +375,7 @@ Then rebuild your packs with `--rehacer` so the new patterns are detected in the
 
 - The app has no backend. Nothing leaves your device, with three exceptions: the optional speech recognition used for the shadowing pronunciation score (the browser's own service), IMABI links when you open them, and AnkiConnect, which stays on the same phone.
 - **The repository contains no anime or audiobook content.** `paquetes/` is excluded in `.gitignore`. Only process media you own, and don't publish the generated packs, since they contain copyrighted clips and subtitles.
-- The screenshots in this README were taken in audio-only mode, with no video frames.
+- The screenshots in this README show a few frames and subtitle lines from *Frieren: Beyond Journey's End* (葬送のフリーレン) purely to illustrate how the app works. They are © their respective owners.
 
 ## Credits
 
