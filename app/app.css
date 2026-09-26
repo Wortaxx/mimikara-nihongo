@@ -215,7 +215,12 @@ select{font:inherit;padding:8px 10px;border-radius:12px;border:1px solid var(--l
 .eplist .ep{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);gap:10px}
 .switch{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line);gap:12px}
 .switch:last-child{border-bottom:0}
-.switch input[type=checkbox]{width:22px;height:22px;accent-color:var(--accent)}
+/* チェックボックス → スイッチ */
+.switch input[type=checkbox]{-webkit-appearance:none;appearance:none;flex:none;width:50px;height:30px;margin:0;border-radius:999px;background:var(--surface2);border:1px solid var(--line);position:relative;cursor:pointer;transition:background .2s,border-color .2s}
+.switch input[type=checkbox]::before{content:"";position:absolute;top:2px;left:2px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s}
+.switch input[type=checkbox]:checked{background:var(--accent);border-color:var(--accent)}
+.switch input[type=checkbox]:checked::before{transform:translateX(20px)}
+.switch input[type=checkbox]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .spinner{width:22px;height:22px;border:3px solid rgba(255,255,255,.25);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;display:inline-block;vertical-align:middle}
 .card .spinner{border-color:var(--line);border-top-color:var(--accent)}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -308,3 +313,25 @@ header.top .ankib.on{background:var(--t3s)}
 .lv-s.cur .w{color:var(--muted);transition:color .12s}
 .lv-s.cur .w.said{color:var(--text)}
 .listen:not(.ahead) .lv-s.future .sentence{filter:blur(5px);opacity:.45;pointer-events:none;user-select:none}
+
+/* 設定 */
+select{-webkit-appearance:none;appearance:none;padding-right:34px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a8f98' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;background-size:16px;cursor:pointer;font-weight:600}
+.shead{display:flex;align-items:center;gap:12px;margin:0 0 4px}
+.shead h2{margin:0}
+.shead .ic{width:36px;height:36px;border-radius:11px;background:var(--cs);color:var(--c);display:flex;align-items:center;justify-content:center;flex:none}
+.shead .ic svg{width:20px;height:20px}
+.settings .switch{padding:14px 0}
+.settings .switch.wide{flex-wrap:wrap}
+.settings .switch.wide .chips{width:100%;padding-left:40px}
+.sl{display:flex;align-items:flex-start;gap:12px;min-width:0;flex:1}
+.si{width:28px;height:28px;flex:none;color:var(--muted);display:flex;align-items:center;justify-content:center}
+.si svg{width:20px;height:20px}
+.st{font-weight:600;font-size:15px}
+.sd{font-size:12.5px;color:var(--muted);margin-top:2px;line-height:1.45}
+.settings .eplist .ep{justify-content:flex-start;gap:12px}
+.iconbtn.del{color:var(--muted)}
+.iconbtn.del:hover{color:var(--bad)}
+.imp2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.imp2 .btn{width:100%;font-size:14px;padding:10px 8px}
+.note-foot{display:flex;gap:10px;align-items:flex-start;color:var(--muted);font-size:12.5px;line-height:1.5;padding:4px 6px 16px}
+.note-foot svg{width:18px;height:18px;flex:none;margin-top:1px}

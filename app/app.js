@@ -80,6 +80,13 @@ const ICON = {
   headphones: I('<path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3zM3 19a2 2 0 0 0 2 2h1v-6H3z"/>'),
   download: I('<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>'),
   plus: I('<path d="M12 5v14M5 12h14"/>'),
+  moon: I('<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'),
+  target: I('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/>'),
+  layers: I('<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>'),
+  ruby: I('<path d="M4 20h7M7.5 20V10M4 10h7"/><path d="M14 6h6M17 6v3M14 20l3-8 3 8M15 17h4"/>'),
+  film: I('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>'),
+  trash: I('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>'),
+  shield: I('<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>'),
 };
 
 // ================= 読み込み =================
@@ -592,30 +599,44 @@ function importButton(kind = SEC(), trigger) {
     }
     S.settings.section = kind; saveSettings(); await loadAll(); go('home');
   };
-  if (trigger) { trigger.onclick = () => inp.click(); return h('div', { style: 'flex:none;width:150px' }, trigger, inp, status); }
+  if (trigger) { trigger.onclick = () => inp.click(); return h('div', { style: trigger.classList.contains('epc') ? 'flex:none;width:150px' : '' }, trigger, inp, status); }
   return h('div', {}, h('button', { class: 'btn primary', onclick: () => inp.click() }, kind === 'book' ? 'オーディオブックの章を読み込む（.zip）' : 'アニメのエピソードを読み込む（.zip）'), inp, status);
 }
 
+const cardHead = (icon, title, c, sub) => h('div', { class: 'shead', style: `--c:var(--t${c});--cs:var(--t${c}s)` },
+  h('span', { class: 'ic', html: icon }), h('div', {}, h('h2', {}, title), sub ? h('div', { class: 'small muted' }, sub) : null));
+const setRow = (icon, title, desc, control, wide) => h('div', { class: 'switch' + (wide ? ' wide' : '') },
+  h('div', { class: 'sl' }, h('span', { class: 'si', html: icon }), h('div', {}, h('div', { class: 'st' }, title), desc ? h('div', { class: 'sd' }, desc) : null)), control);
+const toggle = (key, onch) => h('input', { type: 'checkbox', role: 'switch', checked: !!S.settings[key], onchange: e => { S.settings[key] = e.target.checked; saveSettings(); onch && onch(e.target.checked); } });
 function viewSettings() {
   const root = app(); root.innerHTML = '';
   root.append(topbar('設定', { back: true }));
-  const w = h('div', { class: 'wrap' }); root.append(w);
+  const w = h('div', { class: 'wrap settings' }); root.append(w);
   const sel = (key, opts, onch) => { const s = h('select', { onchange: () => { S.settings[key] = isNaN(+s.value) ? s.value : +s.value; saveSettings(); onch && onch(); } }, opts.map(([v, t]) => h('option', { value: v, selected: String(S.settings[key]) === String(v) }, t))); return s; };
-  w.append(h('div', { class: 'card' },
-    h('div', { class: 'switch' }, h('span', {}, '一日の目標'), sel('goal', [[10, '10問'], [20, '20問'], [30, '30問'], [50, '50問']])),
-    h('div', { class: 'switch' }, h('span', {}, '1ラウンドの問題数'), sel('roundLen', [[5, '5問'], [10, '10問'], [20, '20問']])),
-    h('div', { class: 'switch' }, h('span', {}, 'ふりがなを表示する'), h('input', { type: 'checkbox', checked: S.settings.furi, onchange: e => { S.settings.furi = e.target.checked; saveSettings(); } })),
-    h('div', { class: 'switch' }, h('span', {}, 'とても短い文もふくめる（ハァ…、ん？など）'), h('input', { type: 'checkbox', checked: S.settings.short, onchange: e => { S.settings.short = e.target.checked; saveSettings(); } })),
-    h('div', { class: 'switch' }, h('span', {}, 'テーマ'), sel('theme', [['auto', '自動'], ['light', 'ライト'], ['dark', 'ダーク']], applyTheme)),
-    h('div', { class: 'switch', style: 'flex-wrap:wrap' }, h('span', {}, '文法クイズのレベル'), glvChips()),
-  ));
+  w.append(h('div', { class: 'card' }, cardHead(ICON.target, '学習', 1),
+    setRow(ICON.flame, '一日の目標', '毎日これだけ答えると、連続日数が続きます', sel('goal', [[10, '10問'], [20, '20問'], [30, '30問'], [50, '50問']])),
+    setRow(ICON.replay, '1ラウンドの問題数', '練習1回あたりの問題の数', sel('roundLen', [[5, '5問'], [10, '10問'], [20, '20問']])),
+    setRow(ICON.ear, 'とても短い文もふくめる', 'ハァ…、ん？ などの短い文も練習に出す', toggle('short')),
+    setRow(ICON.gram, '文法クイズのレベル', '文法の練習で出す JLPT のレベル', glvChips(), true)));
+  w.append(h('div', { class: 'card' }, cardHead(ICON.eye, '表示', 2),
+    setRow(ICON.ruby, 'ふりがなを表示する', '漢字の上に読みを出す', toggle('furi')),
+    setRow(ICON.moon, 'テーマ', '自動はスマホの設定に合わせます', sel('theme', [['auto', '自動'], ['light', 'ライト'], ['dark', 'ダーク']], applyTheme))));
   w.append(ankiLiveCard());
   const list = h('div', { class: 'eplist' });
-  for (const e of Object.values(S.eps)) list.append(h('div', { class: 'ep' }, h('div', {}, h('span', { class: 'tag' }, epType(e) === 'book' ? '本' : 'アニメ'), h('b', {}, epLabel(e.ep)), h('div', { class: 'small muted' }, `${e.ep}・${e.lines.length} 文`)),
-    h('button', { class: 'btn sm danger ghost', onclick: () => confirmInline(list, e.ep) }, '削除')));
-  w.append(h('div', { class: 'card' }, h('h2', {}, 'アニメ／オーディオブック'), list, h('div', { style: 'margin-top:12px;display:grid;gap:10px' }, importButton('anime'), importButton('book'))));
+  const eps = Object.values(S.eps);
+  if (!eps.length) list.append(h('div', { class: 'small muted', style: 'padding:6px 0 10px' }, 'まだ何も読み込んでいません。'));
+  for (const e of eps) {
+    const book = epType(e) === 'book';
+    list.append(h('div', { class: 'ep' },
+      h('span', { class: 'si', html: book ? ICON.headphones : ICON.film }),
+      h('div', { style: 'flex:1;min-width:0' }, h('b', {}, epLabel(e.ep)), h('div', { class: 'small muted' }, `${book ? (e.book ? e.book + '・' : '') : 'アニメ・'}${e.lines.length} 文`)),
+      h('button', { class: 'iconbtn del', 'aria-label': '削除', html: ICON.trash, onclick: () => confirmInline(list, e.ep) })));
+  }
+  const imp = (kind, label, icon) => importButton(kind, h('button', { class: 'btn', html: icon + `<span>${label}</span>` }));
+  w.append(h('div', { class: 'card' }, cardHead(ICON.layers, 'ライブラリ', 6, `${eps.length} 件・アニメのエピソードとオーディオブックの章`), list,
+    h('div', { class: 'imp2' }, imp('anime', 'アニメ（.zip）', ICON.plus), imp('book', '本の章（.zip）', ICON.plus))));
   w.append(backupCard());
-  w.append(h('div', { class: 'card small muted' }, 'データはすべてこのスマホの中に保存されています。ブラウザのデータを消すと、エピソードと記録も消えます。'));
+  w.append(h('div', { class: 'note-foot', html: ICON.shield + '<span>データはすべてこのスマホの中に保存されています。ブラウザのデータを消すと、エピソードと記録も消えます。</span>' }));
 }
 
 // ================= バックアップ（記録だけ。クリップは .zip から読み込み直す） =================
@@ -655,7 +676,7 @@ function backupCard() {
         } }, 'もどす'))));
   };
   const last = S.settings.lastBackup;
-  return h('div', { class: 'card' }, h('h2', {}, 'バックアップ'),
+  return h('div', { class: 'card' }, cardHead(ICON.download, 'バックアップ', 4),
     h('p', { class: 'small muted', style: 'margin:0 0 10px' }, '練習の記録・覚えた言葉・連続日数・Anki の選択をファイルに保存します。スマホを変えたときやブラウザのデータを消したときに、ここからもどせます（エピソードは .zip をもう一度読み込んでください）。'),
     h('div', { class: 'row', style: 'gap:8px;flex-wrap:wrap' }, exp, h('button', { class: 'btn', onclick: () => inp.click() }, '記録をもどす'), inp),
     h('div', { class: 'small muted', style: 'margin-top:8px' }, last ? `前回の保存：${new Date(last).toLocaleDateString('ja-JP')}` : 'まだ保存していません。'),
@@ -674,9 +695,8 @@ function ankiLiveCard() {
     h('li', {}, '「Anki」画面で .apkg を一度作って AnkiDroid に読み込む（カードの形とデッキができます）。'),
     h('li', {}, '「接続テスト」を押す。'));
   const box = h('div', { style: S.settings.ankiLive ? '' : 'display:none' }, steps, h('div', { style: 'margin-top:10px' }, test), status);
-  return h('div', { class: 'card' }, h('h2', {}, 'AnkiDroid に直接追加'),
-    h('div', { class: 'switch' }, h('span', {}, '＋ を押したらすぐ AnkiDroid に入れる'), h('input', { type: 'checkbox', checked: !!S.settings.ankiLive, onchange: e => { S.settings.ankiLive = e.target.checked; saveSettings(); box.style.display = e.target.checked ? '' : 'none'; } })),
-    h('p', { class: 'small muted', style: 'margin:6px 0 0' }, 'AnkiDroid が AnkiWeb と同期すれば、PC の Anki にも届きます。送れなかった文は「Anki」画面に残ります。'),
+  return h('div', { class: 'card' }, cardHead(ICON.cards, 'AnkiDroid に直接追加', 3),
+    setRow(ICON.plus, 'すぐ AnkiDroid に入れる', '＋ を押すとその場で追加。AnkiWeb と同期すれば PC の Anki にも届きます。送れなかった文は「Anki」画面に残ります', toggle('ankiLive', on => { box.style.display = on ? '' : 'none'; })),
     box);
 }
 function glvChips() {
