@@ -114,7 +114,13 @@ async function loadAll() {
 }
 const saveSettings = () => dbPut('kv', S.settings, 'settings');
 const saveKnown = () => dbPut('kv', [...S.known], 'known');
-function applyTheme() { const t = S.settings.theme; if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t); }
+function applyTheme() {
+  const t = S.settings.theme; if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t);
+  // la barra de estado del móvil usa el mismo color que el fondo de la app
+  const dark = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.querySelectorAll('meta[name=theme-color]').forEach(m => { m.removeAttribute('media'); m.content = dark ? '#131619' : '#f5f3ee'; });
+}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (S.settings.theme === 'auto') applyTheme(); });
 
 // 音声認識の結果をかなにするための「表記→読み」表
 let READMAP = null, READMAX = 1; // 表記→読み（シャドーイングで初めて使うときに作る）
