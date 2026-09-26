@@ -34,7 +34,7 @@ const dbPut = (store, val, key) => tx(store, 'readwrite', s => { key === undefin
 
 // ================= 状態 =================
 const S = {
-  eps: {}, lines: [], prog: {}, grammar: {}, known: new Set(), days: {}, thumbs: {}, ankiQ: new Set(), ankiDone: new Set(), vprog: {}, kstat: {},
+  eps: {}, lines: [], prog: {}, grammar: {}, known: new Set(), days: {}, thumbs: {}, ankiQ: new Set(), ankiDone: new Set(), vprog: {}, kstat: {}, daily: {}, yearly: {},
   settings: { video: true, rate: 1, eps: [], lv: [1, 2, 3], short: false, theme: 'auto', roundLen: 10, goal: 20, glv: ['N5', 'N4', 'N3', 'N2', 'N1'], furi: false },
 };
 const $ = (sel, el = document) => el.querySelector(sel);
@@ -111,6 +111,8 @@ async function loadAll() {
   S.ankiDone = new Set((await dbGet('kv', 'ankidone')) || []);
   S.vprog = (await dbGet('kv', 'vprog')) || {};
   S.kstat = (await dbGet('kv', 'kstat')) || {};
+  S.daily = (await dbGet('kv', 'daily')) || {};
+  S.yearly = (await dbGet('kv', 'yearly')) || {};
   buildReadingMap();
   applyTheme();
 }
@@ -207,11 +209,12 @@ function grade(line, ok, kind) {
   else if (ok === false) { p.fail++; p.ivl = 0; p.due = Date.now() + 10 * 60e3; }
   else { p.ivl = Math.max(0.5, p.ivl); p.due = Date.now() + p.ivl * DAY; }
   S.prog[line.id] = p; dbPut('prog', p);
-  countPractice(kind, ok);
+  countPractice(kind, ok, line);
 }
 // 今日の数と、練習の種類ごとの正解数（記録画面のグラフ用）
-function countPractice(kind, ok) {
+function countPractice(kind, ok, line) {
   const d = today(); S.days[d] = (S.days[d] || 0) + 1; dbPut('kv', S.days, 'days');
+  logAnswer(kind, ok, line);
   const k = S.kstat[kind] || (S.kstat[kind] = { ok: 0, mid: 0, bad: 0 });
   k[ok === true ? 'ok' : ok === false ? 'bad' : 'mid']++; dbPut('kv', S.kstat, 'kstat');
 }
@@ -283,6 +286,7 @@ function sheet(content) {
 function vocabEntry(base) { for (const e of Object.values(S.eps)) if (e.vocab && e.vocab[base]) return e.vocab[base]; return null; }
 function wordSheet(l, t) { wordSheetBase(t.b || t.s, t, l); }
 function wordSheetBase(base, t, l) {
+  { const Y = yearRec(); Y.look[base] = (Y.look[base] || 0) + 1; logCount('look'); }
   const v = (l && t && vocabOf(l, t)) || vocabEntry(base);
   const p = (t && t.p) || (v && v.p);
   const ex = S.lines.filter(x => x.tk.some(y => y.b === base));
@@ -307,7 +311,7 @@ function wordSheetBase(base, t, l) {
   }
   sheet(box);
 }
-function toggleKnown(base) { if (S.known.has(base)) S.known.delete(base); else S.known.add(base); saveKnown(); }
+function toggleKnown(base) { if (S.known.has(base)) S.known.delete(base); else { S.known.add(base); activity(); logCount('known'); } saveKnown(); }
 const LEVELS = ['N5', 'N4', 'N3', 'N2', 'N1'];
 const gLv = id => (S.grammar[id] && S.grammar[id][3]) || '';
 const gBasic = id => !!(S.grammar[id] && S.grammar[id][5]);
@@ -318,6 +322,7 @@ const lvBadge = lv => lv ? h('span', { class: 'lvb lv-' + lv }, lv) : null;
 function linesWithGrammar(gid) { return S.lines.filter(l => l.gr && l.gr.some(g => g[0] === gid)); }
 function grammarSheet(gid) {
   const g = S.grammar[gid]; if (!g) return;
+  { const Y = yearRec(); Y.glook[gid] = (Y.glook[gid] || 0) + 1; saveDaily(); }
   const ex = linesWithGrammar(gid);
   const box = h('div', {},
     h('div', { class: 'row', style: 'align-items:center;gap:10px' }, lvBadge(g[3]), h('div', { class: 'hw', style: 'font-size:24px' }, g[0])),
@@ -418,10 +423,10 @@ function ankiBtn(l, small = false) { // small: true＝アイコンだけ、'top'
   };
   b.onclick = async e => {
     e.stopPropagation();
-    if (!live()) { if (S.ankiQ.has(l.id)) S.ankiQ.delete(l.id); else { S.ankiQ.add(l.id); buzz(15); } saveAnki(l.id); draw(); return; }
+    if (!live()) { if (S.ankiQ.has(l.id)) S.ankiQ.delete(l.id); else { S.ankiQ.add(l.id); buzz(15); logCount('anki'); } saveAnki(l.id); draw(); return; }
     if (S.ankiDone.has(l.id)) { toast('この文はもう AnkiDroid に入っています。'); return; }
     b.disabled = true; b.innerHTML = '<span class="spinner"></span>' + (small ? '' : '<span>送信中…</span>');
-    try { await ankiSendLive(l); buzz(15); toast('AnkiDroid に追加しました'); }
+    try { await ankiSendLive(l); buzz(15); logCount('anki'); toast('AnkiDroid に追加しました'); }
     catch (err) { S.ankiQ.add(l.id); saveAnki(l.id); toast('送れませんでした（あとで送れるように残しました）：' + err.message, 6000); }
     b.disabled = false; draw();
   };
@@ -447,7 +452,7 @@ function playerEl(l, { autoplay = true, onended = null } = {}) {
   const wrap = h('div', { class: 'player' + (book ? ' audio-only book' : S.settings.video ? '' : ' audio-only') }, vid, ld, h('div', { class: 'aud', html: ICON.headphones + `<span>${book ? esc(epLabel(l.ep)) : '音声のみ'}</span>` }));
   const rateBtn = h('button', { class: 'btn' + (S.settings.rate < 1 ? ' on' : ''), html: ICON.slow + '<span>ゆっくり</span>' });
   const vidBtn = h('button', { class: 'btn' + (S.settings.video ? ' on' : ''), html: ICON.eye + '<span>映像</span>' });
-  const play = async () => { vid.playbackRate = S.settings.rate; vid.currentTime = 0; try { await vid.play(); } catch (e) { } };
+  const play = async () => { vid.playbackRate = S.settings.rate; vid.currentTime = 0; logPlay(l); try { await vid.play(); } catch (e) { } };
   const replay = h('button', { class: 'btn', html: ICON.replay + '<span>もう一度</span>', onclick: play });
   rateBtn.onclick = () => { S.settings.rate = S.settings.rate < 1 ? 1 : 0.75; rateBtn.classList.toggle('on', S.settings.rate < 1); saveSettings(); play(); };
   vidBtn.onclick = () => { S.settings.video = !S.settings.video; vidBtn.classList.toggle('on', S.settings.video); wrap.classList.toggle('audio-only', !S.settings.video || book); saveSettings(); };
@@ -532,6 +537,7 @@ function viewHome() {
     h('div', { class: 'row', style: 'justify-content:space-between;margin-top:10px' },
       todayN >= goal ? h('span', { class: 'small', style: 'color:var(--ok);font-weight:700' }, '今日の目標、達成！') : h('span'),
       h('span', { class: 'small', style: 'color:var(--accent);font-weight:700' }, '記録を見る ›'))));
+  { const b = wrapBanner(); if (b) w.append(b); }
   // 棚
   w.append(h('div', { class: 'section-title' }, book ? '章（タップで選ぶ）' : 'エピソード（タップで選ぶ）'));
   const shelf = h('div', { class: 'shelf' }); w.append(shelf);
@@ -640,11 +646,12 @@ function viewSettings() {
 }
 
 // ================= バックアップ（記録だけ。クリップは .zip から読み込み直す） =================
-const BACKUP_KV = ['settings', 'known', 'days', 'ankiq', 'ankidone', 'vprog', 'kstat'];
+const BACKUP_KV = ['settings', 'known', 'days', 'ankiq', 'ankidone', 'vprog', 'kstat', 'daily', 'yearly'];
 async function saveFile(blob, fname) { // スマホでは共有メニュー、だめならダウンロード
   try {
     const file = new File([blob], fname, { type: blob.type || 'application/octet-stream' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: fname }); return true; }
+    const mobile = navigator.userAgentData ? navigator.userAgentData.mobile : matchMedia('(pointer: coarse)').matches; // PC はダウンロードにする
+    if (mobile && navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: fname }); return true; }
   } catch (e) { if (e.name === 'AbortError') return false; }
   const a = h('a', { href: URL.createObjectURL(blob), download: fname }); document.body.append(a); a.click(); a.remove();
   return true;
@@ -988,6 +995,7 @@ function renderShadowResult(l, out, res, blob, pl, heard, recErr, inRound, w) {
   }
   const parts = [res.into, res.rit, pron].filter(v => v != null);
   const total = Math.round(parts.reduce((a, b) => a + b, 0) / parts.length);
+  { const Y = yearRec(); Y.shadow = Math.max(Y.shadow, total); Y.shadowN++; saveDaily(); }
   const card = h('div', { class: 'card' });
   const sub = (name, v) => h('div', { class: 'sub' }, h('div', { class: 'lbl' }, h('span', {}, name), h('b', {}, v == null ? '―' : String(v))), h('div', { class: 'bar' }, h('i', { style: `width:${v || 0}%;background:${v == null ? 'transparent' : scoreColor(v)}` })));
   card.append(h('div', { class: 'scorebox' },
@@ -1296,6 +1304,321 @@ function viewStats() {
     weakest ? h('div', { class: 'small', style: 'margin:-4px 0 12px' }, `いちばん苦手：`, h('b', {}, names[weakest[0]])) : null,
     rows,
     h('p', { class: 'small muted', style: 'margin:12px 0 0' }, '正解率は、この画面ができた日からの記録です。書き取りの「おしい」（60〜89%）は正解に入りません。')));
+  const ys = wrapYears(), cy = String(new Date().getFullYear());
+  w.append(h('div', { class: 'card' }, h('h2', {}, '年間まとめ'),
+    h('p', { class: 'small muted', style: 'margin:-4px 0 12px' }, '1年間の練習をスライドでふり返って、PDFで保存できます。毎年1月1日にホームにお知らせが出ます。'),
+    ys.length ? h('div', { class: 'row', style: 'gap:8px;flex-wrap:wrap' }, ys.map(y => h('button', { class: 'btn' + (y === ys[0] ? ' primary' : ''), onclick: () => go('wrapped', y) }, `${y}${y === cy ? '（途中）' : ''}`)))
+      : h('div', { class: 'small muted' }, 'まだ記録がありません。')));
+}
+
+// ================= 年間まとめ（Wrapped） =================
+// 毎日の記録：日付ごとに練習・時間・聞いた長さ・エピソードなどを貯める（年間まとめ用）
+const dayRec = (d = today()) => S.daily[d] || (S.daily[d] = { n: 0, k: {}, eps: {}, an: 0, bk: 0, plays: 0, known: 0, anki: 0, look: 0, act: 0 });
+const yearRec = (y = String(new Date().getFullYear())) => S.yearly[y] || (S.yearly[y] = { hours: Array(24).fill(0), look: {}, glook: {}, shadow: 0, shadowN: 0, chDone: [] });
+let _wrSave = 0, _lastAct = 0;
+const saveDaily = () => { clearTimeout(_wrSave); _wrSave = setTimeout(() => { dbPut('kv', S.daily, 'daily'); dbPut('kv', S.yearly, 'yearly'); }, 600); };
+function activity() { // 勉強時間：5分以内の続けた操作の間を足す（1回あたり最大2分）
+  const now = Date.now(), d = dayRec();
+  if (_lastAct && now - _lastAct < 5 * 60e3) d.act += Math.min(now - _lastAct, 120e3) / 1000;
+  _lastAct = now; yearRec().hours[new Date().getHours()]++; saveDaily();
+  return d;
+}
+function logAnswer(kind, ok, line) {
+  const d = activity(); d.n++;
+  const k = d.k[kind] || (d.k[kind] = { ok: 0, mid: 0, bad: 0 }); k[ok === true ? 'ok' : ok === false ? 'bad' : 'mid']++;
+  if (line && line.ep) d.eps[line.ep] = (d.eps[line.ep] || 0) + 1;
+}
+function logPlay(l) {
+  if (!l || !l.ep) return;
+  const d = activity(), s = Math.max(0, durOf(l));
+  if (isBook(l)) d.bk += s; else d.an += s;
+  d.plays++; d.eps[l.ep] = (d.eps[l.ep] || 0) + 1;
+}
+const logCount = key => { dayRec()[key]++; saveDaily(); };
+
+// ---- 集計
+const yearOf = k => k.slice(0, 4);
+function wrapYears() {
+  const ys = new Set([...Object.keys(S.days), ...Object.keys(S.daily)].filter(k => (S.days[k] || 0) > 0 || (S.daily[k] && (S.daily[k].n || S.daily[k].plays))).map(yearOf));
+  return [...ys].sort().reverse();
+}
+function wrapData(year) {
+  year = String(year);
+  const keys = [...new Set([...Object.keys(S.days), ...Object.keys(S.daily)])].filter(k => yearOf(k) === year).sort();
+  const Y = S.yearly[year] || { hours: Array(24).fill(0), look: {}, glook: {}, shadow: 0, shadowN: 0, chDone: [] };
+  const day = {}; let answers = 0, act = 0, an = 0, bk = 0, plays = 0, known = 0, anki = 0, look = 0;
+  const kinds = {}, eps = {}, month = Array(12).fill(0), monthAct = Array(12).fill(0), week = Array(7).fill(0);
+  for (const k of keys) {
+    const r = S.daily[k] || {}, n = Math.max(S.days[k] || 0, r.n || 0);
+    const busy = n + (r.plays || 0);
+    if (!busy) continue;
+    day[k] = busy; answers += n; act += r.act || 0; an += r.an || 0; bk += r.bk || 0; plays += r.plays || 0;
+    known += r.known || 0; anki += r.anki || 0; look += r.look || 0;
+    const dt = new Date(k + 'T12:00'); month[dt.getMonth()] += busy; monthAct[dt.getMonth()] += (r.act || 0); week[dt.getDay()] += busy;
+    for (const [kk, v] of Object.entries(r.k || {})) { const t = kinds[kk] || (kinds[kk] = { ok: 0, mid: 0, bad: 0 }); t.ok += v.ok; t.mid += v.mid; t.bad += v.bad; }
+    for (const [e, v] of Object.entries(r.eps || {})) eps[e] = (eps[e] || 0) + v;
+  }
+  const daysOn = Object.keys(day).sort();
+  let best = 0, run = 0, prev = null;
+  for (const k of daysOn) { const d = new Date(k + 'T12:00'); run = prev && (d - prev) / DAY < 1.5 ? run + 1 : 1; best = Math.max(best, run); prev = d; }
+  const bestDay = daysOn.reduce((a, k) => (!a || day[k] > day[a] ? k : a), null);
+  const kT = Object.values(kinds).reduce((a, v) => ({ ok: a.ok + v.ok, n: a.n + v.ok + v.mid + v.bad }), { ok: 0, n: 0 });
+  const epList = Object.entries(eps).map(([id, n]) => ({ id, n, e: S.eps[id] })).sort((a, b) => b.n - a.n);
+  const isBookId = x => x.e ? x.e.type === 'book' : /^[A-Z]+_\d+$/.test(x.id); // 削除した章も ID の形で判断
+  const animeEps = epList.filter(x => !isBookId(x)), bookEps = epList.filter(isBookId);
+  const books = {};
+  for (const x of bookEps) { const b = (x.e && x.e.book) || x.id.split('_')[0]; (books[b] = books[b] || { name: b, n: 0, ch: new Set() }).n += x.n; books[b].ch.add(x.id); }
+  const top = (o, n) => Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, n);
+  return {
+    year, day, daysOn: daysOn.length, answers, act, an, bk, plays, known, anki, look, kinds, kT, month, monthAct, week, best, bestDay,
+    anime: animeEps, books: Object.values(books).sort((a, b) => b.n - a.n), chDone: Y.chDone.length,
+    hours: Y.hours, topWords: top(Y.look, 5), topGram: top(Y.glook, 3), shadow: Y.shadow, shadowN: Y.shadowN,
+    cards: kinds.tango ? kinds.tango.ok + kinds.tango.mid + kinds.tango.bad : 0,
+  };
+}
+
+// ---- スライド（1080×1920 のキャンバス）
+const WRF = '"Noto Sans JP","Hiragino Sans","Yu Gothic UI","Meiryo",system-ui,sans-serif';
+const WRC = { bg1: '#0c1114', bg2: '#15242a', acc: '#6fb3a1', text: '#eef1f3', mut: '#98a5ad', dim: '#2a353b' };
+const WR_PAL = [['#3f967d', '#6d58a8'], ['#6d58a8', '#b04a6b'], ['#2c7f8f', '#3f967d'], ['#b04a6b', '#e0b25a'], ['#3b6ea5', '#6d58a8'], ['#a36a00', '#b04a6b']];
+const fmtMin = s => { const m = Math.round(s / 60); return m >= 60 ? `${Math.floor(m / 60)}時間${m % 60 ? m % 60 + '分' : ''}` : `${m}分`; };
+const fmtNum = n => Math.round(n).toLocaleString('ja-JP');
+function wrCanvas(i, n, year) {
+  const cv = document.createElement('canvas'); cv.width = 1080; cv.height = 1920;
+  const c = cv.getContext('2d');
+  const g = c.createLinearGradient(0, 0, 0, 1920); g.addColorStop(0, WRC.bg1); g.addColorStop(1, WRC.bg2); c.fillStyle = g; c.fillRect(0, 0, 1080, 1920);
+  const [a, b] = WR_PAL[i % WR_PAL.length];
+  for (const [x, y, r, col, al] of [[900, 250, 760, a, 0.55], [120, 1500, 700, b, 0.4], [700, 1900, 520, a, 0.25]]) {
+    const rg = c.createRadialGradient(x, y, 0, x, y, r); rg.addColorStop(0, col + Math.round(al * 255).toString(16).padStart(2, '0')); rg.addColorStop(1, col + '00');
+    c.fillStyle = rg; c.fillRect(0, 0, 1080, 1920);
+  }
+  for (let k = 0; k < n; k++) { c.fillStyle = k <= i ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.25)'; wrRR(c, 60 + k * (960 / n), 56, 960 / n - 10, 8, 4); c.fill(); }
+  wrT(c, `耳から日本語 ・ ${year}`, 60, 130, 34, 600, WRC.mut);
+  return [cv, c];
+}
+function wrRR(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+function wrT(c, s, x, y, size, weight = 700, color = WRC.text, align = 'left', maxW) {
+  c.font = `${weight} ${size}px ${WRF}`; c.fillStyle = color; c.textAlign = align; c.textBaseline = 'alphabetic';
+  if (maxW) { while (c.measureText(s).width > maxW && size > 20) { size -= 2; c.font = `${weight} ${size}px ${WRF}`; } }
+  c.fillText(s, x, y);
+}
+function wrWrap(c, s, x, y, size, maxW, lh, weight = 500, color = WRC.mut) {
+  c.font = `${weight} ${size}px ${WRF}`; let line = '';
+  for (const ch of s) { if (c.measureText(line + ch).width > maxW) { wrT(c, line, x, y, size, weight, color); y += lh; line = ch; } else line += ch; }
+  if (line) wrT(c, line, x, y, size, weight, color); return y + lh;
+}
+function wrTitle(c, small, big, y = 300) { wrT(c, small, 60, y, 44, 600, WRC.acc); wrT(c, big, 60, y + 100, 84, 900, WRC.text, 'left', 960); }
+function wrStat(c, x, y, w, value, label) {
+  c.fillStyle = 'rgba(255,255,255,.06)'; wrRR(c, x, y, w, 230, 32); c.fill();
+  wrT(c, value, x + 36, y + 120, 84, 900, WRC.text, 'left', w - 60); wrT(c, label, x + 36, y + 185, 36, 500, WRC.mut, 'left', w - 60);
+}
+function wrBars(c, vals, labels, x, y, w, h, hi) {
+  const mx = Math.max(...vals, 1), bw = w / vals.length;
+  vals.forEach((v, i) => {
+    const bh = Math.max(v ? 8 : 0, h * v / mx);
+    c.fillStyle = i === hi ? WRC.acc : 'rgba(111,179,161,.45)'; wrRR(c, x + i * bw + bw * 0.15, y + h - bh, bw * 0.7, bh, Math.min(10, bw * 0.3)); c.fill();
+    if (labels[i]) wrT(c, labels[i], x + i * bw + bw / 2, y + h + 46, 28, 500, i === hi ? WRC.text : WRC.mut, 'center');
+  });
+}
+const loadImg = src => new Promise(r => { const im = new Image(); im.onload = () => r(im); im.onerror = () => r(null); im.src = src; });
+
+async function wrapSlides(year) {
+  const D = wrapData(year), slides = [];
+  const plan = ['cover', 'numbers', 'calendar', 'months', 'rhythm', 'streak'];
+  if (D.anime.length) plan.push('anime');
+  if (D.books.length) plan.push('books');
+  if (D.kT.n) plan.push('drills');
+  if (D.known || D.topWords.length || D.cards) plan.push('words');
+  if (D.shadowN || D.anki) plan.push('extra');
+  plan.push('end');
+  const N = plan.length, pct = (a, b) => b ? Math.round(100 * a / b) : 0;
+  const KN = { ...KIND_NAME, tango: '単語カード', passage: '段落リスニング' };
+  for (let i = 0; i < N; i++) {
+    const [cv, c] = wrCanvas(i, N, year), p = plan[i];
+    if (p === 'cover') {
+      const ic = await loadImg('icon-512.png'); if (ic) c.drawImage(ic, 390, 430, 300, 300);
+      wrT(c, String(year), 540, 1000, 260, 900, WRC.text, 'center');
+      wrT(c, 'あなたの日本語', 540, 1130, 72, 800, WRC.acc, 'center');
+      wrT(c, '1年のまとめ', 540, 1230, 72, 800, WRC.text, 'center');
+      wrT(c, `${D.daysOn}日・${fmtNum(D.answers)}問・${fmtMin(D.act)}`, 540, 1400, 44, 500, WRC.mut, 'center');
+    } else if (p === 'numbers') {
+      wrTitle(c, 'この1年で', '数字で見る1年');
+      const cells = [[fmtNum(D.daysOn) + '日', '練習した日'], [fmtMin(D.act), '勉強した時間'], [fmtNum(D.answers) + '問', '答えた問題'], [D.kT.n ? pct(D.kT.ok, D.kT.n) + '%' : '―', '正解率'],
+        [fmtMin(D.an + D.bk), '聞いた日本語'], [fmtNum(D.plays) + '回', '再生したクリップ'], [fmtNum(D.known) + '語', '覚えた言葉'], [D.best + '日', '最長の連続日数']];
+      cells.forEach(([v, l], k) => wrStat(c, 60 + (k % 2) * 490, 520 + Math.floor(k / 2) * 270, 470, v, l));
+    } else if (p === 'calendar') {
+      wrTitle(c, '毎日の記録', 'カレンダー', 260);
+      const mx = Math.max(...Object.values(D.day), 1), cell = 30, gap = 5;
+      for (let m = 0; m < 12; m++) {
+        const bx = 60 + (m % 3) * 330, by = 470 + Math.floor(m / 3) * 330;
+        wrT(c, `${m + 1}月`, bx, by, 34, 700, D.month[m] ? WRC.text : WRC.mut);
+        const first = new Date(+year, m, 1), days = new Date(+year, m + 1, 0).getDate(), off = first.getDay();
+        for (let d = 1; d <= days; d++) {
+          const k = `${year}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`, v = D.day[k] || 0, pos = off + d - 1;
+          const x = bx + (pos % 7) * (cell + gap), y = by + 24 + Math.floor(pos / 7) * (cell + gap);
+          c.fillStyle = v ? `rgba(111,179,161,${0.25 + 0.75 * Math.sqrt(v / mx)})` : 'rgba(255,255,255,.07)';
+          wrRR(c, x, y, cell, cell, 7); c.fill();
+        }
+      }
+      if (D.bestDay) { const bd = new Date(D.bestDay + 'T12:00'); wrT(c, `いちばん練習した日：${bd.getMonth() + 1}月${bd.getDate()}日（${D.day[D.bestDay]}回）`, 60, 1840, 38, 600, WRC.mut); }
+    } else if (p === 'months') {
+      const hi = D.month.indexOf(Math.max(...D.month));
+      wrTitle(c, 'いちばんがんばった月', `${hi + 1}月`);
+      wrBars(c, D.month, D.month.map((_, k) => String(k + 1)), 60, 560, 960, 560, hi);
+      wrT(c, '月ごとの練習', 60, 1250, 36, 500, WRC.mut);
+      wrStat(c, 60, 1320, 470, fmtMin(D.monthAct[hi]), `${hi + 1}月の勉強時間`);
+      wrStat(c, 550, 1320, 470, fmtNum(D.month[hi]) + '回', `${hi + 1}月の練習`);
+    } else if (p === 'rhythm') {
+      const hmax = D.hours.indexOf(Math.max(...D.hours)), hasH = D.hours.some(Boolean);
+      const type = !hasH ? 'マイペース型' : hmax < 5 ? '深夜型' : hmax < 11 ? '朝型' : hmax < 17 ? '昼型' : hmax < 21 ? '夕方型' : '夜型';
+      wrTitle(c, 'あなたの勉強リズム', type);
+      if (hasH) { wrT(c, `いちばん多い時間：${hmax}時ごろ`, 60, 540, 40, 600, WRC.mut); wrBars(c, D.hours, D.hours.map((_, k) => k % 6 === 0 ? `${k}時` : ''), 60, 600, 960, 420, hmax); }
+      const wd = ['日', '月', '火', '水', '木', '金', '土'], wmax = D.week.indexOf(Math.max(...D.week));
+      wrT(c, `いちばん多い曜日：${wd[wmax]}曜日`, 60, 1230, 40, 600, WRC.mut);
+      wrBars(c, D.week, wd, 60, 1290, 960, 380, wmax);
+    } else if (p === 'streak') {
+      wrTitle(c, '続ける力', `最長 ${D.best}日連続`);
+      wrT(c, '🔥', 540, 1000, 300, 400, WRC.text, 'center');
+      wrStat(c, 60, 1250, 470, D.daysOn + '日', `${year}年に練習した日`);
+      wrStat(c, 550, 1250, 470, Math.round(100 * D.daysOn / (+year % 4 ? 365 : 366)) + '%', '1年のうち練習した割合');
+      wrT(c, D.best >= 30 ? 'すごい！ 本当によく続けました。' : D.best >= 7 ? 'いいペース！ この調子で。' : '来年はもっと続けてみよう！', 60, 1640, 44, 700, WRC.acc);
+    } else if (p === 'anime') {
+      wrTitle(c, 'いちばん見たアニメ', `${D.anime.length}話を練習`);
+      wrT(c, `アニメを聞いた時間：${fmtMin(D.an)}`, 60, 520, 40, 600, WRC.mut);
+      let y = 600;
+      for (const [k, x] of D.anime.slice(0, 5).entries()) {
+        c.fillStyle = 'rgba(255,255,255,.06)'; wrRR(c, 60, y, 960, 220, 28); c.fill();
+        const th = S.thumbs[x.id] && await loadImg(S.thumbs[x.id]);
+        c.save(); wrRR(c, 80, y + 20, 320, 180, 18); c.clip();
+        if (th) c.drawImage(th, 80, y + 20, 320, 180); else { c.fillStyle = WRC.dim; c.fillRect(80, y + 20, 320, 180); }
+        c.restore();
+        wrT(c, `${k + 1}`, 440, y + 90, 56, 900, WRC.acc);
+        wrT(c, x.e ? epLabel(x.id) : x.id, 500, y + 90, 48, 800, WRC.text, 'left', 500);
+        wrT(c, `${fmtNum(x.n)}回`, 500, y + 160, 38, 500, WRC.mut);
+        y += 245;
+      }
+    } else if (p === 'books') {
+      wrTitle(c, 'オーディオブック', `${D.books.length}冊を聞いた`);
+      wrT(c, `聞いた時間：${fmtMin(D.bk)}・最後まで聞いた章：${D.chDone}`, 60, 520, 40, 600, WRC.mut, 'left', 960);
+      let y = 610;
+      for (const b of D.books.slice(0, 4)) {
+        const g2 = c.createLinearGradient(60, y, 1020, y + 260); g2.addColorStop(0, '#2b3f63'); g2.addColorStop(0.6, '#6d58a8'); g2.addColorStop(1, '#b04a6b');
+        c.fillStyle = g2; wrRR(c, 60, y, 960, 260, 30); c.fill();
+        wrT(c, '📖', 110, y + 160, 90, 400);
+        wrT(c, b.name, 240, y + 120, 54, 800, '#fff', 'left', 740);
+        wrT(c, `${b.ch.size}章・${fmtNum(b.n)}回`, 240, y + 190, 38, 500, 'rgba(255,255,255,.8)');
+        y += 290;
+      }
+    } else if (p === 'drills') {
+      const ks = Object.entries(D.kinds).map(([k, v]) => ({ k, n: v.ok + v.mid + v.bad, p: pct(v.ok, v.ok + v.mid + v.bad) })).filter(x => x.n).sort((a, b) => b.n - a.n);
+      wrTitle(c, 'いちばん好きな練習', KN[ks[0].k] || ks[0].k);
+      let y = 560;
+      for (const x of ks.slice(0, 8)) {
+        wrT(c, KN[x.k] || x.k, 60, y + 40, 40, 700, WRC.text);
+        c.fillStyle = 'rgba(255,255,255,.08)'; wrRR(c, 420, y + 12, 440, 34, 17); c.fill();
+        c.fillStyle = WRC.acc; wrRR(c, 420, y + 12, Math.max(34, 440 * x.p / 100), 34, 17); c.fill();
+        wrT(c, `${x.p}%`, 1020, y + 42, 40, 800, WRC.text, 'right');
+        wrT(c, `${fmtNum(x.n)}問`, 420, y + 92, 30, 500, WRC.mut);
+        y += 140;
+      }
+      wrT(c, `全体の正解率 ${pct(D.kT.ok, D.kT.n)}%`, 60, 1800, 44, 700, WRC.acc);
+    } else if (p === 'words') {
+      wrTitle(c, '言葉', `${fmtNum(D.known)}語を覚えた`);
+      wrStat(c, 60, 520, 470, fmtNum(D.cards) + '回', '単語カード');
+      wrStat(c, 550, 520, 470, fmtNum(D.look) + '回', '言葉を調べた');
+      if (D.topWords.length) {
+        wrT(c, 'いちばん調べた言葉', 60, 870, 40, 700, WRC.mut);
+        D.topWords.forEach(([w, n], k) => {
+          const y = 930 + k * 150; c.fillStyle = 'rgba(255,255,255,.06)'; wrRR(c, 60, y, 960, 130, 26); c.fill();
+          wrT(c, `${k + 1}`, 110, y + 85, 52, 900, WRC.acc, 'center');
+          wrT(c, w, 170, y + 88, 60, 800, WRC.text, 'left', 560);
+          const v = vocabEntry(w); if (v && v.g && v.g[0]) wrT(c, v.g[0].split(';')[0], 760, y + 60, 28, 500, WRC.mut, 'left', 240);
+          wrT(c, `${n}回`, 990, y + 110, 28, 600, WRC.mut, 'right');
+        });
+      }
+    } else if (p === 'extra') {
+      wrTitle(c, 'シャドーイングと Anki', 'まだまだある！');
+      wrStat(c, 60, 560, 470, D.shadow ? D.shadow + '点' : '―', 'シャドーイング最高点');
+      wrStat(c, 550, 560, 470, fmtNum(D.shadowN) + '回', 'シャドーイングした');
+      wrStat(c, 60, 830, 470, fmtNum(D.anki) + '文', 'Anki に送った');
+      if (D.topGram.length) {
+        wrT(c, 'いちばん調べた文法', 60, 1200, 40, 700, WRC.mut);
+        D.topGram.forEach(([gid, n], k) => { const g3 = S.grammar[gid]; wrT(c, `${k + 1}. ${g3 ? g3[0] : gid}（${n}回）`, 60, 1290 + k * 90, 46, 700, WRC.text, 'left', 960); });
+      }
+    } else if (p === 'end') {
+      const ic = await loadImg('icon-512.png'); if (ic) c.drawImage(ic, 440, 360, 200, 200);
+      wrT(c, 'おつかれさまでした！', 540, 720, 76, 900, WRC.text, 'center');
+      wrT(c, `${year}年、よくがんばりました`, 540, 820, 48, 600, WRC.acc, 'center');
+      const rows = [['練習した日', D.daysOn + '日'], ['勉強した時間', fmtMin(D.act)], ['答えた問題', fmtNum(D.answers) + '問'], ['聞いた日本語', fmtMin(D.an + D.bk)], ['覚えた言葉', fmtNum(D.known) + '語'], ['最長の連続', D.best + '日']];
+      c.fillStyle = 'rgba(255,255,255,.06)'; wrRR(c, 110, 930, 860, rows.length * 100 + 60, 36); c.fill();
+      rows.forEach(([l, v], k) => { wrT(c, l, 170, 1020 + k * 100, 42, 500, WRC.mut); wrT(c, v, 910, 1020 + k * 100, 46, 800, WRC.text, 'right'); });
+      wrT(c, `${+year + 1}年も、耳から日本語を。`, 540, 1760, 44, 700, WRC.text, 'center');
+    }
+    slides.push(cv);
+  }
+  return slides;
+}
+
+// ---- PDF（ライブラリなし。1ページに1枚の JPEG）
+async function slidesToPdf(canvases) {
+  const enc = new TextEncoder(), parts = [], offs = []; let len = 0;
+  const push = x => { const b = typeof x === 'string' ? enc.encode(x) : x; parts.push(b); len += b.length; };
+  const obj = (n, ...body) => { offs[n] = len; push(`${n} 0 obj\n`); body.forEach(push); push('\nendobj\n'); };
+  push('%PDF-1.4\n'); push(new Uint8Array([37, 226, 227, 207, 211, 10]));
+  const n = canvases.length, PW = 405, PH = 720;
+  obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+  obj(2, `<< /Type /Pages /Kids [${canvases.map((_, i) => `${3 + i * 3} 0 R`).join(' ')}] /Count ${n} >>`);
+  for (let i = 0; i < n; i++) {
+    const cv = canvases[i], p = 3 + i * 3;
+    const jpg = new Uint8Array(await (await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.9))).arrayBuffer());
+    obj(p, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /XObject << /Im0 ${p + 1} 0 R >> >> /Contents ${p + 2} 0 R >>`);
+    obj(p + 1, `<< /Type /XObject /Subtype /Image /Width ${cv.width} /Height ${cv.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpg.length} >>\nstream\n`, jpg, '\nendstream');
+    const cs = `q ${PW} 0 0 ${PH} 0 0 cm /Im0 Do Q`;
+    obj(p + 2, `<< /Length ${cs.length} >>\nstream\n${cs}\nendstream`);
+  }
+  const xref = len, total = 3 + n * 3;
+  push(`xref\n0 ${total}\n0000000000 65535 f \n`);
+  for (let k = 1; k < total; k++) push(`${String(offs[k]).padStart(10, '0')} 00000 n \n`);
+  push(`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  return new Blob(parts, { type: 'application/pdf' });
+}
+
+// ---- 画面
+function viewWrapped(year) {
+  const years = wrapYears();
+  year = String(year || years[0] || new Date().getFullYear());
+  const root = app(); root.innerHTML = '';
+  root.append(topbar(`${year} まとめ`, { back: () => go('stats') }));
+  const w = h('div', { class: 'wrap has-bar' }); root.append(w);
+  if (years.length > 1) w.append(h('div', { class: 'chips', style: 'margin-bottom:10px' }, years.map(y => h('button', { class: 'chip' + (y === year ? ' on' : ''), onclick: () => go('wrapped', y) }, y + (+y === new Date().getFullYear() ? '（途中）' : '')))));
+  const box = h('div', { class: 'wr-slides' }, h('div', { class: 'card', style: 'text-align:center' }, h('span', { class: 'spinner' }), ' まとめを作成中…'));
+  w.append(box);
+  let slides = null;
+  const pdfBtn = h('button', { class: 'btn primary', disabled: true, html: ICON.download + '<span>PDFで保存</span>' });
+  pdfBtn.onclick = async () => {
+    pdfBtn.disabled = true; pdfBtn.innerHTML = '<span class="spinner"></span><span>PDFを作成中…</span>';
+    try { await saveFile(await slidesToPdf(slides), `mimikara_wrapped_${year}.pdf`); }
+    catch (e) { toast('エラー：' + e.message); }
+    pdfBtn.disabled = false; pdfBtn.innerHTML = ICON.download + '<span>PDFで保存</span>';
+  };
+  setBar(w, pdfBtn);
+  (async () => {
+    try { await document.fonts.ready; } catch (e) { }
+    slides = await wrapSlides(year);
+    box.innerHTML = '';
+    for (const cv of slides) box.append(cv);
+    pdfBtn.disabled = false;
+  })();
+}
+// 1月のあいだ、ホームに去年のまとめのお知らせを出す
+function wrapBanner() {
+  const now = new Date(), py = String(now.getFullYear() - 1);
+  if (now.getMonth() !== 0 || !wrapYears().includes(py) || (S.settings.wrapSeen || {})[py]) return null;
+  const close = h('button', { class: 'iconbtn', 'aria-label': '閉じる', html: ICON.x, onclick: e => { e.stopPropagation(); S.settings.wrapSeen = { ...(S.settings.wrapSeen || {}), [py]: true }; saveSettings(); card.remove(); } });
+  const card = h('div', { class: 'card wr-banner', onclick: () => go('wrapped', py) },
+    h('div', { style: 'flex:1' }, h('div', { class: 'wr-y' }, `${py}年のまとめ`), h('div', { style: 'font-weight:800;font-size:18px;margin:2px 0 4px' }, '1年間の日本語をふり返ろう 🎉'), h('div', { class: 'small', style: 'opacity:.85' }, 'タップして見る・PDFで保存')),
+    close);
+  return card;
 }
 
 // ================= Anki =================
@@ -1349,7 +1672,7 @@ function viewAnkiBox() {
       }
       const blob = await AnkiExport.buildApkg(items, ankiDeck(isB));
       const fname = `mimikara_${today()}_${items.length}.apkg`;
-      const shared = !!(navigator.canShare && navigator.canShare({ files: [new File([blob], fname)] }));
+      const shared = !!((navigator.userAgentData ? navigator.userAgentData.mobile : matchMedia('(pointer: coarse)').matches) && navigator.canShare && navigator.canShare({ files: [new File([blob], fname)] }));
       await saveFile(blob, fname);
       q.forEach(l => { S.ankiDone.add(l.id); S.ankiQ.delete(l.id); }); saveAnki();
       toast(`${items.length} 枚のカードを作りました`);
@@ -1368,7 +1691,7 @@ function seqPlayer({ onLine, onEnd } = {}) {
   const playAt = async i => {
     const my = ++token;
     if (i < 0 || i >= list.length) { playing = false; onEnd && onEnd(); return; }
-    idx = i; playing = true; onLine && onLine(list[i], i);
+    idx = i; playing = true; onLine && onLine(list[i], i); logPlay(list[i]);
     const u = await clipUrl(list[i].id); if (my !== token) return;
     if (!u) return playAt(i + 1);
     a.src = u; a.playbackRate = S.settings.rate; a.preservesPitch = true;
@@ -1515,6 +1838,7 @@ function viewListen(arg) {
   // 章の終わり：次の章があれば続けて再生
   const chs = bookChapters(ep), next = chs[chs.indexOf(epId) + 1];
   const finished = () => {
+    { const Y = yearRec(); if (!Y.chDone.includes(epId)) Y.chDone.push(epId); saveDaily(); }
     rows.forEach(r => { r.classList.remove('cur', 'future'); r.classList.add('past'); r.querySelectorAll('.said').forEach(x => x.classList.remove('said')); });
     pos[epId] = 0; saveSettings();
     endBox.innerHTML = '';
@@ -1612,7 +1936,7 @@ function viewPassage(arg) {
   setBar(w, h('button', { class: 'btn primary', onclick: reveal }, '文字を見る'));
 }
 
-const VIEWS = { listen: viewListen, wordquiz: viewWordQuiz, wordsum: viewWordSummary, stats: viewStats, ankibox: viewAnkiBox, passage: viewPassage, home: viewHome, settings: viewSettings, reader: viewReader, vocab: viewVocab, summary: viewSummary, glist: viewGrammarList };
+const VIEWS = { wrapped: viewWrapped, listen: viewListen, wordquiz: viewWordQuiz, wordsum: viewWordSummary, stats: viewStats, ankibox: viewAnkiBox, passage: viewPassage, home: viewHome, settings: viewSettings, reader: viewReader, vocab: viewVocab, summary: viewSummary, glist: viewGrammarList };
 
 // ================= 起動 =================
 (async () => {

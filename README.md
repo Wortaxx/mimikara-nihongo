@@ -37,6 +37,7 @@ A Python script on your PC cuts every subtitle line into its own clip, analyses 
 | 📖 | **Reader** | The whole episode line by line, with translation, speaker and optional furigana. |
 | 📚 | **Dictionary and grammar** | Tap any word for its meaning (JMdict); 560 JLPT grammar patterns from N5 to N1 with examples. |
 | 📊 | **Progress** | Daily goal, streaks, a 30-day chart and accuracy for each drill. |
+| 🎁 | **Yearly wrap-up** | Every January, a story-style summary of your year (days, hours, anime, audiobooks, words) that you can save as a PDF. |
 | 🗂️ | **Anki** | Turn any line into an Anki card with its video, via `.apkg` or straight into AnkiDroid. |
 | 📕 | **Audiobooks** | Japanese audiobooks become the same drills, plus whole-chapter listening with a live transcript, paragraph listening and a reader. |
 | 💾 | **Backup** | Save and restore your progress as a small file. |
@@ -74,7 +75,7 @@ flowchart LR
   - [Home screen](#home-screen) · [Episodes and importing](#episodes-and-importing)
   - [Practice drills](#practice-drills-練習): [Mixed](#mixed-practice-ミックス練習) · [Dictation](#dictation-書き取り) · [Fill in the blank](#fill-in-the-blank-穴埋め) · [Order](#sentence-order-並べ替え) · [Listening](#listening-聞き取り) · [Grammar](#grammar-文法) · [Shadowing](#shadowing-シャドーイング) · [Word cards](#word-cards-単語カード) · [Summary](#round-summary-結果)
   - [Learning tools](#learning-tools-学ぶ): [Reader](#reader-読む) · [Furigana](#furigana) · [Word details](#word-details) · [Grammar details](#grammar-details) · [Vocabulary](#vocabulary-単語帳) · [Grammar list](#grammar-list-文法リスト)
-  - [Progress](#progress-記録) · [Anki](#anki) · [Settings](#settings-設定) · [Light and dark themes](#light-and-dark-themes)
+  - [Progress](#progress-記録) · [Yearly wrap-up](#yearly-wrap-up-年間まとめ) · [Anki](#anki) · [Settings](#settings-設定) · [Light and dark themes](#light-and-dark-themes)
   - [Audiobooks](#audiobooks-オーディオブック): [Audiobook tab](#audiobook-tab) · [Chapter listening](#chapter-listening-章リスニング) · [Paragraph listening](#paragraph-listening-段落リスニング) · [Chapter reader](#chapter-reader-読む)
 - [🚀 Quick start](#-quick-start)
 - [🔧 Setup guide](#-setup-guide)
@@ -271,6 +272,30 @@ Open it by tapping the progress card on the home screen (記録を見る).
 - **Totals:** questions answered, days practised, current streak, best streak, known words and words seen in word cards.
 - **Last 30 days:** one bar per day with your daily goal as a dashed line. Bars that reach the goal are highlighted, and tapping a bar shows that day's count.
 - **Accuracy by drill,** with your weakest drill called out.
+
+### Yearly wrap-up (年間まとめ)
+
+<p align="center">
+  <img src="docs/screenshots/31-wrapped.png" width="260" alt="Yearly wrap-up in the app">
+</p>
+<p align="center">
+  <img src="docs/screenshots/32-wrapped-slides.png" width="900" alt="Some of the yearly wrap-up slides">
+</p>
+
+Like a "Wrapped" for your Japanese. **Every 1 January** a card appears on the home screen (for the whole month, and you can dismiss it) with a summary of the year that just ended. It is also always available from **記録 → 年間まとめ**, including the current year so far.
+
+The summary is a set of story-style slides, and **PDFで保存** saves them as a PDF (one slide per page) to keep or share. It includes:
+
+- **The year in numbers:** days practised, study time, questions answered, accuracy, minutes of Japanese listened to, clips played, words learned and longest streak.
+- **A calendar of every day**, month by month, coloured by how much you practised, plus your busiest day.
+- **Your best month**, and your **study rhythm**: the hours of the day and days of the week you practise most (morning person or night owl?).
+- **Anime:** the episodes you practised most, with their thumbnails, and how long you listened.
+- **Audiobooks:** the books and chapters you listened to, and the chapters you finished.
+- **Drills:** your favourite drill and your accuracy in each one.
+- **Words:** words learned, word-card reviews and the words and grammar you looked up most.
+- **Shadowing and Anki:** your best shadowing score, how many times you shadowed and how many cards you sent to Anki.
+
+Slides with no data are skipped. The daily record behind it is stored on the phone and included in the [backup](#7-back-up-your-progress); the app started keeping the detailed record (drills, episodes, listening time…) with this feature, so earlier days only count days and answers.
 
 ### Anki
 
@@ -551,7 +576,7 @@ This uses [AnkiConnect Android](https://github.com/KamWithK/AnkiconnectAndroid),
 > [!CAUTION]
 > Progress lives in the phone's browser storage. **Clearing the browser data or changing phones erases it.** Make a backup now and then.
 
-- **⚙ 設定 → バックアップ → 記録を保存** saves a small `mimikara_backup_<date>.json` file, and on a phone the share menu opens so you can send it to Drive, email and so on. The backup includes sentence and word progress, known words, streaks, Anki selections and settings.
+- **⚙ 設定 → バックアップ → 記録を保存** saves a small `mimikara_backup_<date>.json` file, and on a phone the share menu opens so you can send it to Drive, email and so on. The backup includes sentence and word progress, known words, streaks, the daily record used by the yearly wrap-up, Anki selections and settings.
 - **記録をもどす** restores a backup, asking for confirmation first.
 - Clips are **not** included. Re-import the episode `.zip` files after restoring.
 

@@ -335,3 +335,9 @@ select{-webkit-appearance:none;appearance:none;padding-right:34px;background-ima
 .imp2 .btn{width:100%;font-size:14px;padding:10px 8px}
 .note-foot{display:flex;gap:10px;align-items:flex-start;color:var(--muted);font-size:12.5px;line-height:1.5;padding:4px 6px 16px}
 .note-foot svg{width:18px;height:18px;flex:none;margin-top:1px}
+
+/* 年間まとめ */
+.wr-slides canvas{display:block;width:100%;height:auto;border-radius:18px;margin:0 0 14px;box-shadow:var(--shadow)}
+.wr-banner{display:flex;gap:10px;align-items:center;cursor:pointer;border:0;color:#fff;background:linear-gradient(135deg,#3f7d6e,#6d58a8 70%,#b04a6b)}
+.wr-banner .wr-y{font-size:12px;font-weight:800;letter-spacing:.08em;opacity:.85}
+.wr-banner .iconbtn{color:#fff}
