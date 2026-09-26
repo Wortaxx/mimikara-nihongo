@@ -352,6 +352,7 @@ def main(argv=None):
     ap.add_argument("--es-stream", default=None, help="índice ffmpeg del subtítulo español dentro del vídeo")
     ap.add_argument("--no-video", action="store_true")
     ap.add_argument("--no-unir", action="store_true", help="no juntar las líneas seguidas del mismo personaje")
+    ap.add_argument("--calidad", choices=["normal", "ligera"], default="normal", help="ligera: clips a 270p, ~37% más pequeños")
     a = ap.parse_args(argv)
     os.makedirs(a.out, exist_ok=True)
     global FF
@@ -415,14 +416,15 @@ def main(argv=None):
         except Exception:
             old_idx = {}
         new_idx = {}
+        Q = {"normal": {"h": 360, "crf": "30", "ab": "64k"}, "ligera": {"h": 270, "crf": "32", "ab": "48k"}}[a.calidad]
         for n, l in enumerate(lines):
             s0 = max(0, l["st"] - 250) / 1000; dur = (l["en"] + 350) / 1000 - s0
             outp = os.path.join(cdir, l["id"] + ".mp4")
-            key = f"{s0:.3f}-{dur:.3f}"; new_idx[l["id"]] = key
+            key = f"{s0:.3f}-{dur:.3f}-{a.calidad}"; new_idx[l["id"]] = key
             if not os.path.exists(outp) or old_idx.get(l["id"]) != key:
                 subprocess.run([FF, "-v", "error", "-y", "-ss", f"{s0:.3f}", "-i", a.video, "-t", f"{dur:.3f}",
-                                "-map", "0:v:0", "-map", amap, "-vf", "scale=-2:360,format=yuv420p", "-c:v", "libx264",
-                                "-preset", "veryfast", "-crf", "30", "-profile:v", "main", "-c:a", "aac", "-b:a", "64k",
+                                "-map", "0:v:0", "-map", amap, "-vf", f"scale=-2:{Q['h']},format=yuv420p", "-c:v", "libx264",
+                                "-preset", "veryfast", "-crf", Q["crf"], "-profile:v", "main", "-c:a", "aac", "-b:a", Q["ab"],
                                 "-ac", "1", "-movflags", "+faststart", outp], check=True)
             l["clip"] = f"clips/{l['id']}.mp4"; l["cs"] = int(s0 * 1000)
             if n % 25 == 0: print(f"\r  clips {n}/{len(lines)}", end="", flush=True)

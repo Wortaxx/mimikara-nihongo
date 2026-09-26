@@ -329,7 +329,7 @@ Open it with the ⚙ button on the home screen. Settings are grouped into cards,
 | **表示** (display) | ふりがなを表示する | Show furigana. |
 | | テーマ | Theme: auto (follows the phone), light or dark. |
 | **AnkiDroid に直接追加** | すぐ AnkiDroid に入れる | Send cards straight to AnkiDroid when you tap ＋. See [Set up Anki](#6-set-up-anki). |
-| **ライブラリ** (library) | | Your imported episodes and chapters. The 🗑 button deletes one; **＋ アニメ（.zip）** and **＋ 本の章（.zip）** import more. |
+| **ライブラリ** (library) | | Your imported episodes and chapters, and how much storage the app is using. The 🗑 button deletes one; **＋ アニメ（.zip）** and **＋ 本の章（.zip）** import more. |
 | **バックアップ** (backup) | 記録を保存 / 記録をもどす | Save or restore your progress. See [Back up your progress](#7-back-up-your-progress). |
 
 ### Light and dark themes
@@ -463,6 +463,7 @@ The packs are written to `<project>\paquetes\anime\<series folder name>\S01E01.z
 | `--salida "D:\packs"` | Write the packs somewhere else. |
 | `--rehacer` | Rebuild episodes that already have a `.zip`, for example after updating the script. |
 | `--no-unir` | Don't merge consecutive subtitle lines from the same speaker into one sentence. |
+| `--calidad ligera` | Lighter clips (270p instead of 360p): about **37 % smaller**, with hardly any visible difference on a phone. Use it together with `--rehacer` to shrink episodes you already made. |
 
 </details>
 
@@ -476,7 +477,7 @@ The packs are written to `<project>\paquetes\anime\<series folder name>\S01E01.z
 3. Measures the offset between the subtitles and the audio, and corrects it.
 4. Splits each sentence into words with readings and furigana, looks up meanings in JMdict, and detects JLPT grammar patterns.
 5. Rates each sentence as easy, normal or hard.
-6. Cuts a 360p clip (H.264 + AAC) for every sentence.
+6. Cuts a 360p clip (H.264 + AAC) for every sentence, or 270p with `--calidad ligera`.
 
 </details>
 
@@ -524,6 +525,8 @@ The app in the `app/` folder is a set of static files with no build step.
 1. On GitHub, open the repository, go to **Settings → Pages**, and under *Build and deployment* choose **Deploy from a branch → `main` → `/ (root)`**.
 2. After a minute the app is live at `https://<your-user>.github.io/<repo-name>/app/`.
 3. Open that address in Chrome on your phone, then use **⋮ → Add to Home screen** to install it like a normal app.
+
+Once installed, the app always opens instantly from the phone, even with no signal. When a new version is published it is downloaded in the background and used the next time you open the app.
 
 GitHub Pages is free for public repositories. For a private repository it needs a paid GitHub plan. Making the repository public is safe, because the packs in `paquetes/` are never uploaded (see [Privacy and copyright](#-privacy-and-copyright)).
 
@@ -599,6 +602,15 @@ The script prints the videos it could not match with a Japanese subtitle. Check 
 <br>
 
 This happens with Anaconda, whose `numpy` and faster-whisper each ship their own copy of the OpenMP runtime. `audiobook.py` already sets `KMP_DUPLICATE_LIB_OK=TRUE` to allow it; if you still see the error with an old copy of the script, run `set KMP_DUPLICATE_LIB_OK=TRUE` in the same terminal first.
+
+</details>
+
+<details>
+<summary><b>How do I free up space on my phone?</b></summary>
+
+<br>
+
+Almost all the space is taken by the clips (about 20 MB per anime episode). **⚙ 設定 → ライブラリ** shows how much the app is using; delete the episodes you no longer study with 🗑. Your progress on those sentences, your known words and your stats are kept, so if you import the episode again later you carry on where you left off. To make every episode smaller, rebuild the packs with `--calidad ligera --rehacer` and import them again.
 
 </details>
 

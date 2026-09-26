@@ -104,16 +104,12 @@ async function loadAll() {
   const st = await dbGet('kv', 'settings'); if (st) Object.assign(S.settings, st);
   S.settings.eps = (S.settings.eps || []).filter(e => S.eps[e]);
   if (!Array.isArray(S.settings.glv) || !S.settings.glv.length) S.settings.glv = LEVELS.slice();
-  S.known = new Set((await dbGet('kv', 'known')) || []);
-  S.days = (await dbGet('kv', 'days')) || {};
-  S.thumbs = (await dbGet('kv', 'thumbs')) || {};
-  S.ankiQ = new Set((await dbGet('kv', 'ankiq')) || []);
-  S.ankiDone = new Set((await dbGet('kv', 'ankidone')) || []);
-  S.vprog = (await dbGet('kv', 'vprog')) || {};
-  S.kstat = (await dbGet('kv', 'kstat')) || {};
-  S.daily = (await dbGet('kv', 'daily')) || {};
-  S.yearly = (await dbGet('kv', 'yearly')) || {};
-  buildReadingMap();
+  const [known, days, thumbs, ankiq, ankidone, vprog, kstat, daily, yearly] = await Promise.all(
+    ['known', 'days', 'thumbs', 'ankiq', 'ankidone', 'vprog', 'kstat', 'daily', 'yearly'].map(k => dbGet('kv', k)));
+  S.known = new Set(known || []); S.days = days || {}; S.thumbs = thumbs || {};
+  S.ankiQ = new Set(ankiq || []); S.ankiDone = new Set(ankidone || []);
+  S.vprog = vprog || {}; S.kstat = kstat || {}; S.daily = daily || {}; S.yearly = yearly || {};
+  READMAP = null; ELIG_CACHE.clear(); POS_INDEX.clear(); // データが変わったので作り直す（必要になったときに）
   applyTheme();
 }
 const saveSettings = () => dbPut('kv', S.settings, 'settings');
@@ -121,13 +117,14 @@ const saveKnown = () => dbPut('kv', [...S.known], 'known');
 function applyTheme() { const t = S.settings.theme; if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t); }
 
 // 音声認識の結果をかなにするための「表記→読み」表
-let READMAP = new Map(), READMAX = 1;
+let READMAP = null, READMAX = 1; // 表記→読み（シャドーイングで初めて使うときに作る）
 function buildReadingMap() {
   READMAP = new Map();
   for (const l of S.lines) for (const t of l.tk) if (t.r && /[一-鿿]/.test(t.s)) { READMAP.set(t.s, t.r); READMAX = Math.max(READMAX, t.s.length); }
   for (const e of Object.values(S.eps)) for (const [b, v] of Object.entries(e.vocab || {})) if (v.r && /[一-鿿]/.test(b) && !READMAP.has(b)) { READMAP.set(b, v.r); READMAX = Math.max(READMAX, b.length); }
 }
 function toKana(text) {
+  if (!READMAP) buildReadingMap();
   let out = '', i = 0;
   while (i < text.length) {
     let done = false;
@@ -255,8 +252,28 @@ function weightOf(l) {
   const p = S.prog[l.id]; if (!p) return 1.5;
   let w = 1; if (p.due <= Date.now()) w += 3; w += Math.min(p.fail, 4) * 1.5; if (p.ivl >= 7) w *= 0.3; return w;
 }
+// 練習ごとに使える文（毎回 7千文以上を調べ直さないように覚えておく）
+const ELIG_CACHE = new Map();
+function eligible(kind) {
+  const key = kind === 'gramatica' ? kind + S.settings.glv.join() : kind;
+  let set = ELIG_CACHE.get(key);
+  if (!set) { set = new Set(S.lines.filter(ELIG[kind])); ELIG_CACHE.set(key, set); }
+  return set;
+}
+// 穴埋めのまちがいの選択肢：品詞ごとの言葉の一覧（表記ごとに1つ）
+const POS_INDEX = new Map();
+function posIndex() {
+  const sec = SEC();
+  if (!POS_INDEX.has(sec)) {
+    const idx = {}, seen = new Set();
+    for (const l of secLines()) for (const t of l.tk) if (CONTENT_P.includes(t.p) && cleanForm(t) && !seen.has(t.p + t.s)) { seen.add(t.p + t.s); (idx[t.p] || (idx[t.p] = [])).push(t); }
+    POS_INDEX.set(sec, idx);
+  }
+  return POS_INDEX.get(sec);
+}
 function pickLine(kind, avoid) {
-  const c = pool().filter(ELIG[kind]).filter(l => !avoid.has(l.id));
+  const E = eligible(kind);
+  const c = pool().filter(l => E.has(l) && !avoid.has(l.id));
   if (!c.length) return null;
   let tot = 0; const ws = c.map(l => (tot += weightOf(l)));
   const r = Math.random() * tot; return c[ws.findIndex(w => w >= r)];
@@ -639,7 +656,12 @@ function viewSettings() {
       h('button', { class: 'iconbtn del', 'aria-label': '削除', html: ICON.trash, onclick: () => confirmInline(list, e.ep) })));
   }
   const imp = (kind, label, icon) => importButton(kind, h('button', { class: 'btn', html: icon + `<span>${label}</span>` }));
-  w.append(h('div', { class: 'card' }, cardHead(ICON.layers, 'ライブラリ', 6, `${eps.length} 件・アニメのエピソードとオーディオブックの章`), list,
+  const used = h('div', { class: 'small muted', style: 'margin:-2px 0 6px' });
+  if (navigator.storage && navigator.storage.estimate) navigator.storage.estimate().then(({ usage, quota }) => {
+    const mb = v => v >= 1e9 ? (v / 1e9).toFixed(1) + ' GB' : Math.round(v / 1e6) + ' MB';
+    used.textContent = `このスマホで使っている容量：${mb(usage)}（使える量の ${Math.max(1, Math.round(100 * usage / quota))}%）。見終わったエピソードは 🗑 で消すと空きます。`;
+  }).catch(() => { });
+  w.append(h('div', { class: 'card' }, cardHead(ICON.layers, 'ライブラリ', 6, `${eps.length} 件・アニメのエピソードとオーディオブックの章`), used, list,
     h('div', { class: 'imp2' }, imp('anime', 'アニメ（.zip）', ICON.plus), imp('book', '本の章（.zip）', ICON.plus))));
   w.append(backupCard());
   w.append(h('div', { class: 'note-foot', html: ICON.shield + '<span>データはすべてこのスマホの中に保存されています。ブラウザのデータを消すと、エピソードと記録も消えます。</span>' }));
@@ -816,7 +838,7 @@ const EX = {
     if (unknown.length) cands = unknown;
     cands = shuffle(cands).sort((a, b) => (vocabOf(l, a[0]).c ? 1 : 0) - (vocabOf(l, b[0]).c ? 1 : 0));
     const [target, ti] = cands[0];
-    const others = shuffle(secLines().flatMap(x => x.tk.filter(t => t.p === target.p && cleanForm(t) && t.b !== target.b && t.s !== target.s && Math.abs(t.s.length - target.s.length) <= 2)));
+    const others = shuffle((posIndex()[target.p] || []).filter(t => t.b !== target.b && t.s !== target.s && Math.abs(t.s.length - target.s.length) <= 2));
     const opts = [target.s]; for (const t of others) { if (!opts.includes(t.s)) opts.push(t.s); if (opts.length === 4) break; }
     w.append(playerEl(l));
     w.append(h('div', { class: 'qtitle' }, 'ぬけている言葉はどれ？'));

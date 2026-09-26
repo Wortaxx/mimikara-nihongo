@@ -33,6 +33,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("carpeta"); ap.add_argument("--solo", nargs="*"); ap.add_argument("--salida"); ap.add_argument("--rehacer", action="store_true", help="vuelve a crear también los episodios que ya tienen .zip")
     ap.add_argument("--no-unir", action="store_true", help="no juntar las líneas seguidas del mismo personaje")
+    ap.add_argument("--calidad", choices=["normal", "ligera"], default="normal", help="ligera: clips a 270p, ~37% más pequeños")
     a = ap.parse_args()
     root = a.carpeta
     # Default: <project folder>\paquetes\anime\<series folder name>
@@ -62,7 +63,7 @@ def main():
         t0 = time.time()
         wdir = os.path.join(work, ep)
         try:
-            process.main(["--srt", subs[ep], "--video", videos[ep], "--ep", ep, "--out", wdir] + (["--no-unir"] if a.no_unir else []))
+            process.main(["--srt", subs[ep], "--video", videos[ep], "--ep", ep, "--out", wdir] + (["--no-unir"] if a.no_unir else []) + ["--calidad", a.calidad])
             import zipfile
             tmp = dst + ".part"
             with zipfile.ZipFile(tmp, "w", zipfile.ZIP_STORED) as z:
