@@ -739,6 +739,7 @@ Then rebuild your packs with `--rehacer` so the new patterns are detected in the
 | **In the app** | [sql.js](https://github.com/sql-js/sql.js) (building `.apkg` files) and [fflate](https://github.com/101arrowz/fflate) (reading `.zip` files) |
 | **Grammar lessons** | Links to [IMABI](https://imabi.org/) |
 | **Direct AnkiDroid integration** | [AnkiConnect Android](https://github.com/KamWithK/AnkiconnectAndroid) |
+| **Music in the demo video** | [Petals On The Water (Japanese Fusion LoFi)](https://pixabay.com/music/beats-petals-on-the-water-full-version-japanese-fusion-lofi-392739/) by kaazoom, under the [Pixabay Content License](https://pixabay.com/service/license-summary/) |
 
 <div align="center">
 <br>
