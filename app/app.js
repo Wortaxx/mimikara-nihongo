@@ -696,7 +696,33 @@ function viewSettings() {
   if (INSTALL_EV && !isInstalled()) w.append(h('div', { class: 'card' }, cardHead(ICON.download, 'アプリとしてインストール', 2),
     setRow(ICON.plus, 'ホーム画面に追加', 'ブラウザではなく、ふつうのアプリのように開けます', h('button', { class: 'btn primary sm', onclick: installApp }, 'インストール'))));
   w.append(backupCard());
+  w.append(updateCard());
   w.append(h('div', { class: 'note-foot', html: ICON.shield + '<span>データはすべてこのスマホの中に保存されています。ブラウザのデータを消すと、エピソードと記録も消えます。</span>' }));
+}
+
+// ================= アプリの更新 =================
+const APP_VERSION = 13; // sw.js の CACHE（animejp-v13）と同じ番号にする
+async function latestVersion() {
+  const txt = await fetch('sw.js?nc=' + Date.now(), { cache: 'no-store' }).then(r => r.text());
+  const m = txt.match(/animejp-v(\d+)/); return m ? +m[1] : 0;
+}
+async function forceUpdate() { // 保存してある古いファイルを消して、ネットから読み直す（記録やエピソードは消えない）
+  try { const reg = await navigator.serviceWorker.getRegistration(); if (reg) await reg.update(); } catch (e) { }
+  for (const k of await caches.keys()) await caches.delete(k);
+  location.reload();
+}
+function updateCard() {
+  const status = h('div', { class: 'small muted', style: 'margin-top:8px' });
+  const btn = h('button', { class: 'btn sm primary', onclick: async () => {
+    btn.disabled = true; status.innerHTML = '<span class="spinner"></span> 確認中…';
+    try {
+      const v = await latestVersion();
+      if (v > APP_VERSION) { status.textContent = `新しい版（v${v}）があります。更新しています…`; await forceUpdate(); }
+      else { status.textContent = '最新版です。'; btn.disabled = false; btn.textContent = 'もう一度読み込む'; btn.onclick = forceUpdate; }
+    } catch (e) { status.textContent = 'インターネットにつながっていません。'; btn.disabled = false; }
+  } }, '最新版に更新');
+  return h('div', { class: 'card' }, cardHead(ICON.replay, 'アプリ', 5),
+    setRow(ICON.download, `バージョン v${APP_VERSION}`, '新しい版があれば、すぐに入れかえます。エピソードや記録はそのまま残ります。', btn), status);
 }
 
 // ================= バックアップ（記録だけ。クリップは .zip から読み込み直す） =================
