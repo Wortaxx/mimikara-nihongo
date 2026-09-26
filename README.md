@@ -261,19 +261,19 @@ Step-by-step instructions for both are in [Set up Anki](#6-set-up-anki).
   <img src="docs/screenshots/24-settings-backup.png" width="260" alt="Episodes and backup">
 </p>
 
-Open it with the ⚙ button on the home screen.
+Open it with the ⚙ button on the home screen. Settings are grouped into cards, and every setting has a one-line explanation under it.
 
-| Setting | Meaning |
-|---|---|
-| 一日の目標 | Daily goal: 10, 20, 30 or 50 questions. |
-| 1ラウンドの問題数 | Questions per round: 5, 10 or 20. |
-| ふりがなを表示する | Show furigana. |
-| とても短い文もふくめる | Include very short lines such as ハァ… or ん？. |
-| テーマ | Theme: auto, light or dark. |
-| 文法クイズのレベル | JLPT levels used in the grammar drill. |
-| AnkiDroid に直接追加 | Send cards straight to AnkiDroid. |
-| アニメ／オーディオブック | Your imported episodes and chapters, with **削除** to delete them and buttons to import more. |
-| バックアップ | Save or restore your progress. See [Back up your progress](#7-back-up-your-progress). |
+| Card | Setting | Meaning |
+|---|---|---|
+| **学習** (study) | 一日の目標 | Daily goal: 10, 20, 30 or 50 questions. |
+| | 1ラウンドの問題数 | Questions per round: 5, 10 or 20. |
+| | とても短い文もふくめる | Include very short lines such as ハァ… or ん？. |
+| | 文法クイズのレベル | JLPT levels used in the grammar drill. |
+| **表示** (display) | ふりがなを表示する | Show furigana. |
+| | テーマ | Theme: auto (follows the phone), light or dark. |
+| **AnkiDroid に直接追加** | すぐ AnkiDroid に入れる | Send cards straight to AnkiDroid when you tap ＋. See [Set up Anki](#6-set-up-anki). |
+| **ライブラリ** (library) | | Your imported episodes and chapters. The 🗑 button deletes one; **＋ アニメ（.zip）** and **＋ 本の章（.zip）** import more. |
+| **バックアップ** (backup) | 記録を保存 / 記録をもどす | Save or restore your progress. See [Back up your progress](#7-back-up-your-progress). |
 
 ### Audiobooks (オーディオブック)
 
@@ -481,10 +481,10 @@ On the PC, open `http://localhost:8000` and everything works, including the micr
 ### 5. Import the packs
 
 1. Copy the `.zip` files to your phone, using a USB cable, Google Drive or anything else. Each anime episode is about 20 MB.
-2. In the app, tap **＋ エピソードを追加** at the end of the episode shelf, or go to **⚙ 設定 → アニメのエピソードを読み込む（.zip）**. For audiobooks, use the オーディオブック tab or **オーディオブックの章を読み込む（.zip）**.
+2. In the app, tap **＋ エピソードを追加** at the end of the episode shelf, or go to **⚙ 設定 → ライブラリ → ＋ アニメ（.zip）**. For audiobooks, use **＋ 章を追加** on the オーディオブック tab or **＋ 本の章（.zip）** in the library.
 3. Select one or more `.zip` files. The clips are copied into the app's storage, so the `.zip` files can be deleted afterwards.
 
-To remove an episode, go to **⚙ 設定 → アニメ／オーディオブック → 削除**. This deletes its sentences and clips.
+To remove an episode or chapter, go to **⚙ 設定 → ライブラリ** and tap its 🗑 button. This deletes its sentences and clips.
 
 ### 6. Set up Anki
 
