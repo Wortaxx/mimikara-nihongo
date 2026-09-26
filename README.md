@@ -41,15 +41,40 @@ A Python script on your PC cuts every subtitle line into its own clip, analyses 
 | 📕 | **Audiobooks** | Japanese audiobooks become the same drills, plus whole-chapter listening with a live transcript, paragraph listening and a reader. |
 | 💾 | **Backup** | Save and restore your progress as a small file. |
 
+## 🧠 How it works
+
+```mermaid
+flowchart LR
+  subgraph PC["💻 Your PC"]
+    direction TB
+    A["🎬 Anime episode<br/>.mkv / .mp4"] --> R["run_all.py<br/>clips · words · grammar · difficulty"]
+    B["📝 Japanese subtitles<br/>.srt / .ass"] --> R
+    C["🎧 Audiobook<br/>one audio file per chapter"] --> W["audiobook.py<br/>Whisper transcription · clips"]
+  end
+  R --> Z[("📦 .zip packs")]
+  W --> Z
+  subgraph Phone["📱 Your phone"]
+    direction TB
+    APP["耳から日本語<br/>web app · works offline"] <--> DB[("Browser storage<br/>clips and progress")]
+  end
+  Z -- "copy and import" --> APP
+  APP -- "＋ Anki" --> K["🗂️ AnkiDroid / Anki"]
+```
+
+1. **On your PC**, a Python script reads your video and its Japanese subtitles (or an audiobook, which it transcribes with Whisper), cuts one clip per sentence and analyses every sentence: words, readings, meanings, JLPT grammar and difficulty.
+2. Each episode or chapter becomes a **`.zip` pack** that you copy to your phone.
+3. **The app** imports the packs into the browser's storage, so everything works offline, and turns them into drills, a reader and Anki cards.
+
 ---
 
 ## 📑 Contents
 
+- [🧠 How it works](#-how-it-works)
 - [✨ Features](#-features)
   - [Home screen](#home-screen) · [Episodes and importing](#episodes-and-importing)
   - [Practice drills](#practice-drills-練習): [Mixed](#mixed-practice-ミックス練習) · [Dictation](#dictation-書き取り) · [Fill in the blank](#fill-in-the-blank-穴埋め) · [Order](#sentence-order-並べ替え) · [Listening](#listening-聞き取り) · [Grammar](#grammar-文法) · [Shadowing](#shadowing-シャドーイング) · [Word cards](#word-cards-単語カード) · [Summary](#round-summary-結果)
   - [Learning tools](#learning-tools-学ぶ): [Reader](#reader-読む) · [Furigana](#furigana) · [Word details](#word-details) · [Grammar details](#grammar-details) · [Vocabulary](#vocabulary-単語帳) · [Grammar list](#grammar-list-文法リスト)
-  - [Progress](#progress-記録) · [Anki](#anki) · [Settings](#settings-設定)
+  - [Progress](#progress-記録) · [Anki](#anki) · [Settings](#settings-設定) · [Light and dark themes](#light-and-dark-themes)
   - [Audiobooks](#audiobooks-オーディオブック): [Audiobook tab](#audiobook-tab) · [Chapter listening](#chapter-listening-章リスニング) · [Paragraph listening](#paragraph-listening-段落リスニング) · [Chapter reader](#chapter-reader-読む)
 - [🚀 Quick start](#-quick-start)
 - [🔧 Setup guide](#-setup-guide)
@@ -152,10 +177,17 @@ A grammar pattern is highlighted in the line; choose what it means. After answer
 #### Shadowing (シャドーイング)
 
 <p align="center">
-  <img src="docs/screenshots/09-shadowing.png" width="260" alt="Shadowing">
+  <img src="docs/screenshots/09-shadowing.png" width="260" alt="Shadowing">&nbsp;&nbsp;
+  <img src="docs/screenshots/09b-shadowing-result.png" width="260" alt="Shadowing result with pitch graph">
 </p>
 
-Record yourself repeating the line, either after the clip (クリップのあとに言う) or together with it (クリップといっしょに言う, earphones recommended). You get scores for **intonation** (your pitch curve against the character's), **rhythm** and **pronunciation**.
+Record yourself repeating the line, either after the clip (クリップのあとに言う) or together with it (クリップといっしょに言う, earphones recommended). Then you get:
+
+- **Scores** for **intonation** (イントネーション), **rhythm** (リズム) and **pronunciation** (発音), and an overall score.
+- **A pitch graph**: the character's intonation in green and yours in red, over the sentence, so you can see where your voice goes up or down differently.
+- **What the phone heard**, with each word coloured green, orange or red.
+- **Tips**, for example if you were much slower or faster than the original, or where to leave a short pause.
+- Buttons to play the original (元の音声), your recording (自分の声), or both one after the other (つづけて聞く), and **もう一度録音** to try again.
 
 > [!IMPORTANT]
 > The microphone only works when the app is opened over HTTPS (or on `localhost`). The pronunciation score uses the browser's speech recognition, so it also needs an internet connection.
@@ -275,6 +307,15 @@ Open it with the ⚙ button on the home screen. Settings are grouped into cards,
 | **ライブラリ** (library) | | Your imported episodes and chapters. The 🗑 button deletes one; **＋ アニメ（.zip）** and **＋ 本の章（.zip）** import more. |
 | **バックアップ** (backup) | 記録を保存 / 記録をもどす | Save or restore your progress. See [Back up your progress](#7-back-up-your-progress). |
 
+### Light and dark themes
+
+<p align="center">
+  <img src="docs/screenshots/30-light-home.png" width="260" alt="Home screen in the light theme">&nbsp;&nbsp;
+  <img src="docs/screenshots/30b-light-reader.png" width="260" alt="Reader in the light theme">
+</p>
+
+The app has a light and a dark theme. By default it follows your phone's setting; you can also choose one in **⚙ 設定 → 表示 → テーマ**. The other screenshots in this README use the dark theme.
+
 ### Audiobooks (オーディオブック)
 
 #### Audiobook tab
@@ -329,13 +370,7 @@ The whole chapter, grouped by paragraph. **最初から聞く** plays the chapte
 
 ## 🔧 Setup guide
 
-```
-Your PC                                            Your phone
-───────                                            ──────────
-anime .mkv/.mp4 + Japanese .srt/.ass ─┐
-                                      ├─ script ─▶ .zip packs ─▶ import in the app
-audiobook .mp3 (one file / chapter) ──┘  (Python)                (stored on the phone)
-```
+The steps below follow the flow shown in [How it works](#-how-it-works): create the packs on your PC, open the app on your phone and import them.
 
 ### 1. Install the PC tools
 
@@ -619,8 +654,7 @@ Then rebuild your packs with `--rehacer` so the new patterns are detected in the
 │   ├── audiobook.py        Processes an audiobook → one .zip per chapter
 │   ├── grammar_jlpt.py     Grammar definitions (N5–N1)
 │   ├── export_grammar.py   Regenerates app/grammar_ja.js
-│   ├── jmdict_min.zip      Compact JMdict dictionary
-│   └── LEEME.txt           Short guide in Spanish
+│   └── jmdict_min.zip      Compact JMdict dictionary
 ├── docs/screenshots/       Images used in this README
 └── paquetes/               Your generated packs (not in the repository)
 ```
@@ -629,7 +663,7 @@ Then rebuild your packs with `--rehacer` so the new patterns are detected in the
 
 - The app has no backend. Nothing leaves your device, with three exceptions: the optional speech recognition used for the shadowing pronunciation score (the browser's own service), IMABI links when you open them, and AnkiConnect, which stays on the same phone.
 - **The repository contains no anime or audiobook content.** `paquetes/` is excluded in `.gitignore`. Only process media you own, and don't publish the generated packs, since they contain copyrighted clips and subtitles.
-- The screenshots in this README show a few frames and subtitle lines from *Frieren: Beyond Journey's End* (葬送のフリーレン) purely to illustrate how the app works. They are © their respective owners.
+- The screenshots in this README show a few frames and subtitle lines from *Frieren: Beyond Journey's End* (葬送のフリーレン) and a few lines from the audiobook of *Your Name.* (小説 君の名は。) purely to illustrate how the app works. They are © their respective owners. The progress numbers in the screenshots are demo data.
 
 ## 🙏 Credits
 
