@@ -352,8 +352,8 @@ def main(argv=None):
     ap.add_argument("--es-stream", default=None, help="índice ffmpeg del subtítulo español dentro del vídeo")
     ap.add_argument("--no-video", action="store_true")
     ap.add_argument("--no-unir", action="store_true", help="no juntar las líneas seguidas del mismo personaje")
-    ap.add_argument("--calidad", choices=["normal", "ligera"], default="normal", help="ligera: clips a 270p, ~37% más pequeños")
-    ap.add_argument("--completo", action="store_true", help="incluir también el episodio completo en un solo vídeo (para verlo entero en la app)")
+    ap.add_argument("--calidad", choices=["normal", "ligera"], default="normal", help="ligera: clips a 270p, ~37%% más pequeños")
+    ap.add_argument("--completo", nargs="?", const="360", choices=["360", "720", "1080"], help="incluir el episodio completo en un solo vídeo: 360 (por defecto), 720 (HD) o 1080 (Full HD)")
     a = ap.parse_args(argv)
     os.makedirs(a.out, exist_ok=True)
     global FF
@@ -432,19 +432,21 @@ def main(argv=None):
         print(f"\r  clips {len(lines)}/{len(lines)}")
         json.dump(new_idx, open(idx_path, "w", encoding="utf-8"))
         if a.completo:   # the whole episode in one video, same quality as the clips
-            full = os.path.join(a.out, "episode.mp4"); mark = full + f".{a.calidad}"
+            FQ = {"360": dict(Q, prof="main", ac="1"), "720": {"h": 720, "crf": "23", "ab": "96k", "prof": "high", "ac": "2"},
+                  "1080": {"h": 1080, "crf": "22", "ab": "128k", "prof": "high", "ac": "2"}}[a.completo]
+            full = os.path.join(a.out, "episode.mp4"); mark = full + f".{a.completo}.{a.calidad}"
             if not (os.path.exists(full) and os.path.exists(mark)):
-                print("  episodio completo…", flush=True)
-                subprocess.run([FF, "-v", "error", "-y", "-i", a.video, "-map", "0:v:0", "-map", amap, "-vf", f"scale=-2:{Q['h']},format=yuv420p",
-                                "-c:v", "libx264", "-preset", "veryfast", "-crf", Q["crf"], "-profile:v", "main", "-c:a", "aac", "-b:a", Q["ab"],
-                                "-ac", "1", "-movflags", "+faststart", full], check=True)
+                print(f"  episodio completo ({FQ['h']}p)…", flush=True)
+                subprocess.run([FF, "-v", "error", "-y", "-i", a.video, "-map", "0:v:0", "-map", amap, "-vf", f"scale=-2:{FQ['h']},format=yuv420p",
+                                "-c:v", "libx264", "-preset", "veryfast", "-crf", FQ["crf"], "-profile:v", FQ["prof"], "-c:a", "aac", "-b:a", FQ["ab"],
+                                "-ac", FQ["ac"], "-movflags", "+faststart", full], check=True)
                 open(mark, "w").close()
     for p in ("_tmp.wav", "_es.ass"):
         if os.path.exists(os.path.join(a.out, p)): os.remove(os.path.join(a.out, p))
 
     grammar = grammar_dict(lines)
     ep = {"v": 1, "ep": a.ep, "title": title, "tlang": tlang, "offset": offset, "lines": lines, "vocab": vocab, "grammar": grammar}
-    if a.completo and a.video and not a.no_video: ep["full"] = "episode.mp4"
+    if a.completo and a.video and not a.no_video: ep["full"] = "episode.mp4"; ep["fullq"] = int(a.completo)
     with open(os.path.join(a.out, "episode.json"), "w", encoding="utf-8") as f:
         json.dump(ep, f, ensure_ascii=False, separators=(",", ":"))
     print("  frases:", len(lines), "| vocabulario:", len(vocab), "| título:", title)

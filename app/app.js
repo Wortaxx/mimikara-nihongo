@@ -1880,7 +1880,7 @@ async function viewListen(arg) {
   w.append(h('div', { class: 'card lv-head' },
     h('div', { class: 'row', style: 'gap:8px;flex-wrap:wrap' }, sel, rateBtn, trBtn, aheadBtn),
     h('div', { class: 'row', style: 'gap:10px;align-items:center;margin-top:10px' }, seek, timeTxt),
-    book ? null : h('div', { class: 'small muted', style: 'margin-top:8px' }, fullUrl ? 'エピソード全体を再生しています。' : 'セリフの部分だけを続けて再生しています（間の場面はとばします）。エピソード全体を見るには、PCで --completo をつけて作り直してください。')));
+    book ? null : h('div', { class: 'small muted', style: 'margin-top:8px' }, fullUrl ? `エピソード全体を再生しています${ep.fullq ? `（${ep.fullq}p）` : ''}。` : 'セリフの部分だけを続けて再生しています（間の場面はとばします）。エピソード全体を見るには、PCで --completo をつけて作り直してください。')));
 
   // 本文：本は段落ごと、アニメは長い間で区切って、文を並べる
   const rows = [];

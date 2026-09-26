@@ -234,7 +234,7 @@ The wide **エピソードを通して見る** button on the アニメ tab plays
 **Whole episode or dialogue only.** If the pack was made with **`--completo`** (see [Create episode packs](#2-create-episode-packs-zip)), it contains the full episode as one video and the app plays it **from start to finish without cuts** (opening, music and action scenes included); the subtitle simply disappears while nobody is speaking. Packs made without it only have the clips, so the app plays the lines of dialogue one after another and skips everything in between. The screen tells you which of the two you are watching.
 
 > [!NOTE]
-> The full episode adds about 25–40 MB per episode at 360p. At 360p it looks sharp in portrait and a little soft in full screen.
+> The full episode adds about 30–40 MB per episode at 360p: sharp in portrait, a little soft in full screen. For full screen, make it in HD with `--completo 720` (about 125 MB) or `--completo 1080` (about 275 MB).
 
 ### Learning tools (学ぶ)
 
@@ -489,7 +489,7 @@ The packs are written to `<project>\paquetes\anime\<series folder name>\S01E01.z
 | `--salida "D:\packs"` | Write the packs somewhere else. |
 | `--rehacer` | Rebuild episodes that already have a `.zip`, for example after updating the script. |
 | `--no-unir` | Don't merge consecutive subtitle lines from the same speaker into one sentence. |
-| `--completo` | Also include the **whole episode** as one video, so it can be watched from start to finish in [エピソードを通して見る](#watch-whole-episodes-エピソードを通して見る). Adds about 25–40 MB per episode. |
+| `--completo` | Also include the **whole episode** as one video, so it can be watched from start to finish in [エピソードを通して見る](#watch-whole-episodes-エピソードを通して見る). 360p by default (about 30–40 MB per episode); `--completo 720` for HD (about 125 MB) or `--completo 1080` for Full HD (about 275 MB). The drill clips keep their own quality. |
 | `--calidad ligera` | Lighter clips (270p instead of 360p): about **37 % smaller**, with hardly any visible difference on a phone. Use it together with `--rehacer` to shrink episodes you already made. |
 
 </details>
