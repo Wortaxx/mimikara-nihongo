@@ -1,4 +1,4 @@
-# Genera app/grammar_ja.js a partir de grammar_jlpt.py (la app necesita la lista completa).
+# Generates app/grammar_ja.js from grammar_jlpt.py (the app needs the full list).
 import json, sys, os
 from grammar_jlpt import GRAMMAR
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), "..", "app", "grammar_ja.js")

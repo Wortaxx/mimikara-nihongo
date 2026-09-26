@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-"""Procesa un episodio: subtítulos japoneses (+ vídeo) -> frases analizadas + clips.
-Uso: python process.py --srt JP.srt --video EP.mkv --ep S01E27 --out out_dir [--no-video]
+"""Processes one episode: Japanese subtitles (+ video) -> analysed sentences + clips.
+Usage: python process.py --srt JP.srt --video EP.mkv --ep S01E27 --out out_dir [--no-video]
 """
 import argparse, json, os, re, sqlite3, subprocess, wave, hashlib, unicodedata
 import numpy as np, pysubs2, fugashi
@@ -26,7 +26,7 @@ def ffmpeg_exe():
 FF = None
 
 def probe_streams(video):
-    """Lee las pistas del vídeo a partir de la salida de 'ffmpeg -i'. Devuelve [(idx, tipo, idioma, título)]."""
+    """Reads the video's streams from the output of 'ffmpeg -i'. Returns [(idx, type, language, title)]."""
     r = subprocess.run([FF, "-hide_banner", "-i", video], capture_output=True, text=True, encoding="utf-8", errors="replace")
     out, cur = [], None
     for ln in r.stderr.splitlines():
@@ -37,7 +37,7 @@ def probe_streams(video):
         if m and cur is not None and not cur[3]: cur[3] = m.group(1).strip()
     return out
 
-# ---------- utilidades de texto ----------
+# ---------- text utilities ----------
 def kata2hira(s):
     return "".join(chr(ord(c) - 0x60) if "ァ" <= c <= "ヶ" else c for c in s)
 
@@ -50,7 +50,7 @@ def is_kana(c):
 FURI_RE = re.compile(r"([一-鿿々]+)\(([぀-ゟー]+)\)")
 
 def clean_line(raw):
-    """Devuelve (speaker, display_text, furigana_overrides) o None si no es diálogo."""
+    """Returns (speaker, display_text, furigana_overrides), or None if the line is not dialogue."""
     t = re.sub(r"\{[^}]*\}", "", raw).replace("\\N", "\n").replace("\\n", "\n")
     if re.search(r"[♪♬♫]", t):
         return None
@@ -64,8 +64,8 @@ def clean_line(raw):
             if speaker is None:
                 speaker = m.group(1)
             ln = m.group(2)
-        ln = re.sub(r"［[^］]*］|\[[^\]]*\]", "", ln)  # efectos de sonido
-        ln = re.sub(r"^（[^）]*）$", "", ln)  # línea sólo de sonido/nombre
+        ln = re.sub(r"［[^］]*］|\[[^\]]*\]", "", ln)  # sound effects
+        ln = re.sub(r"^（[^）]*）$", "", ln)  # line with only a sound or a name
         ln = ln.strip()
         if ln:
             lines.append(ln)
@@ -81,7 +81,7 @@ def clean_line(raw):
 
 # ---------- furigana ----------
 def furi_split(surface, reading):
-    """Divide surface en segmentos [(texto, lectura|None)] quitando okurigana."""
+    """Splits surface into segments [(text, reading|None)], leaving the okurigana without a reading."""
     if not has_kanji(surface) or not reading:
         return [(surface, None)]
     s, r = surface, reading
@@ -97,9 +97,9 @@ def furi_split(surface, reading):
     if post: out.append((post, None))
     return out
 
-# ---------- diccionario ----------
+# ---------- dictionary ----------
 class Dict:
-    """JMdict compacto (jmdict_min.db): entry(idseq, pri, uk, g), kanji(text,idseq), kana(text,idseq)."""
+    """Compact JMdict (jmdict_min.db): entry(idseq, pri, uk, g), kanji(text,idseq), kana(text,idseq)."""
     def __init__(self, path):
         self.c = sqlite3.connect(path)
         self.cache = {}
@@ -133,7 +133,7 @@ class Dict:
         self.cache[key] = res
         return res
 
-# ---------- tokenización ----------
+# ---------- tokenisation ----------
 POS_MAP = {"名詞": "n", "代名詞": "pron", "動詞": "v", "形容詞": "adj", "形状詞": "adjna", "副詞": "adv",
            "連体詞": "adn", "接続詞": "conj", "感動詞": "int", "助詞": "prt", "助動詞": "aux",
            "接頭辞": "pre", "接尾辞": "suf", "補助記号": "sym", "空白": "sp", "記号": "sym"}
@@ -141,7 +141,7 @@ POS_ES = {"n": "sustantivo", "pron": "pronombre", "v": "verbo", "adj": "adjetivo
           "adv": "adverbio", "adn": "adnominal", "conj": "conjunción", "int": "interjección", "prt": "partícula",
           "aux": "auxiliar", "pre": "prefijo", "suf": "sufijo", "pn": "nombre propio"}
 
-# Nombres propios de la serie: el analizador los parte (フリー+レン). Se amplía con los nombres de hablante de los subtítulos.
+# The series' proper nouns: the analyser splits them (フリー+レン). Extended with the speaker names from the subtitles.
 NAMES = set("フリーレン フェルン シュタルク ヒンメル ハイター アイゼン ゼーリエ デンケン ラオフェン リヒター カンネ ラヴィーネ "
             "ユーベル ラント ヴィアベル エーレ シャルフ ゲナウ メトーデ ゼンゼ レルネン フランメ ザイン アウラ リュグナー リーニエ "
             "ドラート クラフト ファルシュ トーア ヴァルム レヴォルテ ソリテール マハト グラオザーム クヴァール ゼーリエ様".split())
@@ -204,7 +204,7 @@ def tokenize(tagger, dic, text, overrides, vocab, feats):
     return toks
 
 def chunks(toks):
-    """Agrupa tokens en bloques (bunsetsu aproximado) para el ejercicio de ordenar."""
+    """Groups tokens into blocks (approximate bunsetsu) for the sentence-order drill."""
     out = []
     for i, t in enumerate(toks):
         if t["p"] == "sp":
@@ -219,7 +219,7 @@ def chunks(toks):
             out.append([i])
     return out
 
-# ---------- sincronización ----------
+# ---------- synchronisation ----------
 def audio_offset(wav, subs):
     w = wave.open(wav)
     x = np.frombuffer(w.readframes(w.getnframes()), np.int16).astype(np.float32)
@@ -235,7 +235,7 @@ def audio_offset(wav, subs):
 NON_DIALOGUE = re.compile(r"(?:^|[_\-\s])(?:cart\w*|signs?|op|ed|kara\w*|title\w*|song\w*|insert\w*|lyrics?)(?:$|[_\-\s\d])", re.I)
 
 def pick_translation(streams, forced=None):
-    """Elige la pista de traducción: español (España > otras) y, si no hay, inglés (diálogo completo, no carteles)."""
+    """Picks the translation track: Spanish (Spain > others) and, if there is none, English (full dialogue, not signs)."""
     if forced is not None:
         return forced, "es"
     subs = [s for s in streams if s[1] == "subtitle"]
@@ -259,13 +259,13 @@ def es_for(line_start, line_end, es_events):
     return re.sub(r"\s+", " ", " ".join(t for _, t in parts)).strip()
 
 def analyze_text(tagger, dic, text, ov, vocab):
-    """Divide en palabras y detecta gramática. Devuelve (tokens, gramática)."""
+    """Splits into words and detects grammar. Returns (tokens, grammar)."""
     feats = []
     toks = tokenize(tagger, dic, text, ov, vocab, feats)
     flat = re.sub(r"\s", "", text)
     ts = tokstr([f4[:4] for f4 in feats])
     gram = []
-    cum = []  # posición en texto plano de inicio de cada token de feats
+    cum = []  # start position in the plain text of each token in feats
     pos_ = 0
     for f4 in feats:
         cum.append(pos_); pos_ += len(f4[0])
@@ -285,7 +285,7 @@ def analyze_text(tagger, dic, text, ov, vocab):
     return toks, gram
 
 def assign_levels(lines, vocab):
-    """Dificultad aproximada 1-3 de cada frase."""
+    """Approximate difficulty (1-3) of each sentence."""
     for l in lines:
         content = [t for t in l["tk"] if t.get("b") in vocab and vocab[t["b"]]["p"] != "pn"]
         rare = sum(1 for t in content if not vocab[t["b"]]["c"])
@@ -298,12 +298,12 @@ def grammar_dict(lines):
     used = {g[0] for l in lines for g in l["gr"]}
     return {pid: [BY_ID[pid]["label"], BY_ID[pid]["q"], BY_ID[pid]["ex"], BY_ID[pid]["lv"], BY_ID[pid]["im"], int(BY_ID[pid]["basic"])] for pid in used}
 
-# ---------- unir líneas del mismo personaje ----------
+# ---------- merge lines from the same character ----------
 CONTINUES = re.compile(r"(て|で|が|けど|けれど|から|ので|のに|し|たら|ば|と|、|…|‥|っ|ながら|ても|でも|けども)$")
 def merge_events(events, offset, es_events, join=True, max_gap=700, max_ms=12000, max_chars=70, max_parts=4):
-    """Junta líneas seguidas del mismo personaje en una sola frase (un solo clip).
-    El personaje se sabe por el nombre entre paréntesis de los subtítulos japoneses o,
-    si no lo hay, por el campo "Actor" de los subtítulos españoles/ingleses del vídeo."""
+    """Merges consecutive lines from the same character into one sentence (one clip).
+    The character comes from the name in brackets in the Japanese subtitles or,
+    if there is none, from the "Actor" field of the video's Spanish/English subtitles."""
     def actor(st, en):
         best, bo = None, 0
         for e in es_events:
@@ -315,22 +315,22 @@ def merge_events(events, offset, es_events, join=True, max_gap=700, max_ms=12000
     for ev, (spk, text, ov) in events:
         st, en = ev.start - offset, ev.end - offset
         act = actor(st, en) if es_events else None
-        arrow = bool(re.search(r"[➡→]\s*$", re.sub(r"\{[^}]*\}", "", ev.text).strip()))  # los subtítulos de TV marcan con ➡ que la frase sigue
+        arrow = bool(re.search(r"[➡→]\s*$", re.sub(r"\{[^}]*\}", "", ev.text).strip()))  # TV subtitles mark with ➡ that the sentence continues
         if join and units:
             u = units[-1]
             gap = st - u[1]
-            # ¿mismo personaje? True = seguro, False = distinto, None = no se sabe
+            # same character? True = certain, False = different, None = unknown
             if spk and u[5]: same = (spk == u[5])
             elif act and u[6]: same = (act == u[6])
-            elif spk: same = False            # aparece un nombre nuevo → cambia de personaje
+            elif spk: same = False            # a new name appears → the speaker changes
             else: same = None
             cont = bool(CONTINUES.search(u[3])) or u[8]
             limit = (en - u[0] <= max_ms) and (len(u[3]) + len(text) <= max_chars) and u[7] < max_parts
             ok = False
             if limit and same is not False:
-                if u[8] and gap <= max_gap * 3: ok = True                         # ➡: la frase sigue
+                if u[8] and gap <= max_gap * 3: ok = True                         # ➡: the sentence continues
                 elif same is True: ok = gap <= max_gap or (cont and gap <= max_gap * 2)
-                else: ok = cont and gap <= max_gap * 2                            # sin datos: solo si la frase queda a medias
+                else: ok = cont and gap <= max_gap * 2                            # no data: only if the sentence is clearly unfinished
             if ok:
                 u[1] = en; u[3] = u[3] + " " + text; u[4] = {**u[4], **ov}; u[7] += 1; u[8] = arrow
                 if spk and not u[5]: u[5] = spk
@@ -338,13 +338,13 @@ def merge_events(events, offset, es_events, join=True, max_gap=700, max_ms=12000
                 if not u[2] and spk: u[2] = spk
                 continue
         units.append([st, en, spk, text, ov, spk, act, 1, arrow])
-    # nombre japonés del personaje a partir del actor de los subtítulos del vídeo
+    # the character's Japanese name, from the Actor field of the video's subtitles
     amap = {}
     for u in units:
         if u[5] and u[6]: amap.setdefault(u[6], u[5])
     return [(u[0], u[1], u[2] or amap.get(u[6]), u[3], u[4]) for u in units]
 
-# ---------- principal ----------
+# ---------- main ----------
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--srt", required=True); ap.add_argument("--video"); ap.add_argument("--ep", required=True)
@@ -374,7 +374,7 @@ def main(argv=None):
         subprocess.run([FF, "-v", "error", "-y", "-i", a.video, "-map", amap, "-ac", "1", "-ar", "16000", wav], check=True)
         offset = audio_offset(wav, [ev for ev, _ in events])
         print("  desfase subtítulos -> vídeo:", offset, "ms")
-        # Traducción: español (prefiere España) → si no hay, inglés → si no hay, nada.
+        # Translation: Spanish (Spain preferred) → otherwise English → otherwise none.
         idx, tlang = pick_translation(streams, a.es_stream)
         if idx is not None:
             es_path = os.path.join(a.out, "_es.ass")

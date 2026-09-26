@@ -1,28 +1,28 @@
 # -*- coding: utf-8 -*-
-"""Procesa un audiolibro japonés (un archivo de audio por capítulo) y crea un .zip por capítulo para la app.
+"""Processes a Japanese audiobook (one audio file per chapter) and creates one .zip per chapter for the app.
 
-Uso (Anaconda Prompt):
-    python audiobook.py "C:\\ruta\\Individual Chapters\\mp3"
-    python audiobook.py "C:\\ruta\\mp3" --modelo small          (más rápido, algo menos preciso)
-    python audiobook.py "C:\\ruta\\mp3" --solo 2 3               (solo esos capítulos)
+Usage (Anaconda Prompt):
+    python audiobook.py "C:\\path\\Individual Chapters\\mp3"
+    python audiobook.py "C:\\path\\mp3" --modelo small          (faster, somewhat less accurate)
+    python audiobook.py "C:\\path\\mp3" --solo 2 3               (only those chapters)
 
-Pasos por capítulo:
- 1. Transcribe el audio con Whisper (faster-whisper) con marcas de tiempo por palabra.
-    La transcripción se guarda en _transcripciones\\ para no repetirla nunca.
- 2. Divide el texto en frases (por 。！？ y pausas) y agrupa las frases en párrafos (段落)
-    según las pausas largas del narrador.
- 3. Analiza cada frase igual que el anime (palabras, significados, gramática JLPT, dificultad).
- 4. Corta un clip de audio por frase y empaqueta todo en
-    <carpeta del proyecto>\\paquetes\\audiolibros\\<título>\\<ID>_<nn>.zip  (o en --salida)
+Steps for each chapter:
+ 1. Transcribes the audio with Whisper (faster-whisper), with word-level timestamps.
+    The transcription is saved in _transcripciones\\ so it never has to be repeated.
+ 2. Splits the text into sentences (at 。！？ and pauses) and groups the sentences into paragraphs (段落)
+    using the narrator's long pauses.
+ 3. Analyses each sentence like the anime (words, meanings, JLPT grammar, difficulty).
+ 4. Cuts one audio clip per sentence and packs everything into
+    <project folder>\\paquetes\\audiolibros\\<title>\\<ID>_<nn>.zip  (or into --salida)
 """
 import argparse, json, os, re, subprocess, sys, time, zipfile, shutil
-# Anaconda (numpy/MKL) y faster-whisper (ctranslate2) traen cada uno su libiomp5md.dll;
-# sin esto, al cargar Whisper sale "OMP: Error #15" y el programa se cierra.
+# Anaconda (numpy/MKL) and faster-whisper (ctranslate2) each ship their own libiomp5md.dll;
+# without this, loading Whisper fails with "OMP: Error #15" and the program exits.
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 HERE = os.path.dirname(os.path.abspath(__file__))
-PROJECT = os.path.dirname(HERE)  # la carpeta que contiene "script" (y "app")
+PROJECT = os.path.dirname(HERE)  # the folder that contains "script" (and "app")
 sys.path.insert(0, HERE)
-import process  # reutiliza el análisis del anime
+import process  # reuses the anime analysis
 try:
     sys.stdout.reconfigure(errors="replace")
 except Exception:
@@ -30,7 +30,7 @@ except Exception:
 
 AUDIO_EXT = (".mp3", ".m4b", ".m4a", ".aac", ".flac", ".wav", ".ogg", ".opus")
 
-# ---------------------------------------------------------------- capítulos
+# ---------------------------------------------------------------- chapters
 def chapter_info(fname):
     """'小説 君の名は。 [B07GPT59BQ] - 03 - 第二章　端緒.mp3' -> (3, '第二章　端緒', '小説 君の名は。')"""
     base = os.path.splitext(os.path.basename(fname))[0]
@@ -40,7 +40,7 @@ def chapter_info(fname):
     m = re.search(r"(\d{1,3})", base)
     return (int(m.group(1)) if m else 0), base, ""
 
-# ---------------------------------------------------------------- transcripción
+# ---------------------------------------------------------------- transcription
 def transcribe(path, cache, model_name, device):
     if os.path.exists(cache):
         with open(cache, encoding="utf-8") as f:
@@ -68,10 +68,10 @@ def transcribe(path, cache, model_name, device):
         json.dump(data, f, ensure_ascii=False)
     return data
 
-# ---------------------------------------------------------------- frases y párrafos
+# ---------------------------------------------------------------- sentences and paragraphs
 END = re.compile(r"[。！？!?]+[」』）)]*$")
 def build_sentences(words, max_chars=70, gap_split=0.9):
-    """Une las palabras de Whisper en frases con tiempos."""
+    """Joins Whisper's words into timed sentences."""
     sents, cur = [], []
     def flush():
         if not cur: return
@@ -92,7 +92,7 @@ def build_sentences(words, max_chars=70, gap_split=0.9):
     return sents
 
 def build_passages(sents, pause=1.4, max_sents=10, max_ms=70000):
-    """Agrupa frases en párrafos: corta en las pausas largas del narrador."""
+    """Groups sentences into paragraphs, splitting at the narrator's long pauses."""
     out, start = [], 0
     for i in range(1, len(sents) + 1):
         if i == len(sents):
@@ -103,7 +103,7 @@ def build_passages(sents, pause=1.4, max_sents=10, max_ms=70000):
             out.append([start, i - 1]); start = i
     return out
 
-# ---------------------------------------------------------------- principal
+# ---------------------------------------------------------------- main
 def process_chapter(audio, n, title, book, book_id, out_dir, tr_dir, args, tagger, dic):
     cid = f"{book_id}_{n:02d}"
     dst = os.path.join(out_dir, cid + ".zip")
@@ -163,7 +163,7 @@ def main(argv=None):
     book = next((b for (_, _, b), _ in chapters if b), os.path.basename(os.path.normpath(a.carpeta)))
     book_id = a.id or ("BOOK" if not re.sub(r"[^A-Za-z0-9]", "", book) else re.sub(r"[^A-Za-z0-9]", "", book)[:8].upper())
     if a.id is None and "君の名は" in book: book_id = "KIMINONAWA"
-    # Por defecto: <carpeta del proyecto>\paquetes\audiolibros\<título del libro>
+    # Default: <project folder>\paquetes\audiolibros\<book title>
     safe = re.sub(r'[<>:"/\\|?*]', "", book).strip() or book_id
     out_dir = a.salida or os.path.join(PROJECT, "paquetes", "audiolibros", safe)
     tr_dir = os.path.join(out_dir, "_transcripciones")

@@ -1,6 +1,6 @@
-// Análisis de audio para shadowing: decodificación, detección de voz, tono (YIN) y puntuación.
+// Audio analysis for shadowing: decoding, voice detection, pitch (YIN) and scoring.
 'use strict';
-const SR = 16000, HOP = 160, WIN = 640; // 10 ms de salto, 40 ms de ventana
+const SR = 16000, HOP = 160, WIN = 640; // 10 ms hop, 40 ms window
 
 let _actx = null;
 function actx() { if (!_actx) _actx = new (window.AudioContext || window.webkitAudioContext)(); return _actx; }
@@ -21,7 +21,7 @@ function frameRms(x) {
   return r;
 }
 
-// Recorta silencio inicial y final. Devuelve {a,b} en tramas.
+// Trims leading and trailing silence. Returns {a,b} in frames.
 function activeRange(rms, relThr = 0.06) {
   let peak = 0; for (const v of rms) if (v > peak) peak = v;
   const sorted = Array.from(rms).sort((a, b) => a - b);
@@ -33,7 +33,7 @@ function activeRange(rms, relThr = 0.06) {
   return { a, b, thr };
 }
 
-// YIN simplificado por trama. Devuelve Hz o 0 (sordo).
+// Simplified per-frame YIN. Returns Hz, or 0 (unvoiced).
 function yinPitch(x, rms, thr) {
   const n = rms.length, f0 = new Float32Array(n);
   const tauMin = Math.floor(SR / 450), tauMax = Math.floor(SR / 70);
@@ -46,7 +46,7 @@ function yinPitch(x, rms, thr) {
     let run = 0, best = -1;
     for (let t = 1; t <= tauMax; t++) {
       run += d[t]; const c = d[t] * t / (run || 1);
-      if (t >= tauMin && c < 0.15) { // primer mínimo bajo el umbral
+      if (t >= tauMin && c < 0.15) { // first minimum below the threshold
         while (t + 1 <= tauMax) { const run2 = run + d[t + 1]; const c2 = d[t + 1] * (t + 1) / run2; if (c2 < c) { run = run2; t++; } else break; }
         best = t; break;
       }
@@ -58,7 +58,7 @@ function yinPitch(x, rms, thr) {
 
 function median(a) { if (!a.length) return 0; const s = Array.from(a).sort((p, q) => p - q); return s[Math.floor(s.length / 2)]; }
 
-// Contorno en semitonos respecto a la mediana del hablante, con filtro de mediana.
+// Contour in semitones relative to the speaker's median, with a median filter.
 function contour(f0) {
   const n = f0.length, st = new Float32Array(n).fill(NaN);
   const voiced = [];
@@ -71,12 +71,12 @@ function contour(f0) {
     const v = median(w) - m;
     out[i] = Math.max(-12, Math.min(12, v));
   }
-  // quita saltos de octava aislados
+  // removes isolated octave jumps
   for (let i = 1; i < n - 1; i++) if (!isNaN(out[i]) && Math.abs(out[i]) > 9) out[i] = NaN;
   return out;
 }
 
-// Pausas: tramos de energía baja >= 150 ms dentro de la zona activa. Posición normalizada 0..1.
+// Pauses: low-energy stretches >= 150 ms inside the active region. Position normalised to 0..1.
 function pauses(rms, a, b, thr) {
   const res = []; let run = 0, start = 0;
   for (let i = a; i <= b; i++) {
@@ -100,7 +100,7 @@ async function analyze(blob, fromMs, toMs) {
   return { a, b, thr, rms, ct, logE, dur: (b - a) * HOP / SR, pauses: pauses(rms, a, b, thr), frames: rms.length };
 }
 
-// Remuestrea la zona activa a N puntos.
+// Resamples the active region to N points.
 function resample(arr, a, b, N) {
   const out = new Float32Array(N);
   for (let k = 0; k < N; k++) { const i = Math.round(a + (b - a) * k / (N - 1)); out[k] = arr[Math.min(arr.length - 1, Math.max(0, i))]; }
@@ -109,7 +109,7 @@ function resample(arr, a, b, N) {
 
 function zs(a) { let m = 0, c = 0; for (const v of a) if (!isNaN(v)) { m += v; c++; } m /= c || 1; let s = 0; for (const v of a) if (!isNaN(v)) s += (v - m) ** 2; s = Math.sqrt(s / (c || 1)) || 1; return Array.from(a, v => (v - m) / s); }
 
-// DTW con banda sobre envolvente de energía (+tono) para alinear ritmos distintos.
+// Banded DTW over the energy envelope (+pitch) to align different rhythms.
 function dtw(A, B, band = 0.2) {
   const n = A.length, m = B.length, W = Math.max(Math.ceil(Math.max(n, m) * band), Math.abs(n - m) + 2);
   const INF = 1e18, D = new Float64Array((n + 1) * (m + 1)).fill(INF); D[0] = 0;
@@ -139,7 +139,7 @@ function pearson(x, y) {
 function stdv(a) { const m = a.reduce((p, q) => p + q, 0) / (a.length || 1); return Math.sqrt(a.reduce((p, q) => p + (q - m) ** 2, 0) / (a.length || 1)); }
 const clamp01 = v => Math.max(0, Math.min(1, v));
 
-// Compara original (o) y usuario (u). Devuelve puntuaciones y consejos.
+// Compares the original (o) with the user (u). Returns scores and tips.
 function compareShadow(o, u) {
   const N = 150;
   if (u.b - u.a < 20) return { error: '声が聞こえませんでした。マイクに近づいて、もう一度どうぞ。' };
@@ -150,7 +150,7 @@ function compareShadow(o, u) {
   const px = [], py = [];
   for (const [i, j] of path) if (!isNaN(oc[i]) && !isNaN(uc[j])) { px.push(oc[i]); py.push(uc[j]); }
   const tips = [];
-  // Entonación
+  // Intonation
   let into = null;
   if (px.length >= 12) {
     const md = px.reduce((s, v, k) => s + Math.abs(v - py[k]), 0) / px.length;
@@ -159,13 +159,13 @@ function compareShadow(o, u) {
     const so = stdv(px), su = stdv(py);
     if (su < so * 0.55 && so > 1) tips.push('イントネーションが平らです。上がり下がりをもっとはっきりさせましょう。');
     else if (su > so * 1.8 && su > 2) tips.push('イントネーションが大げさです。元の音声はもっと平らです。');
-    // final de frase
+    // end of the sentence
     const tail = k => { const n = k.length, s = Math.floor(n * 0.75); const a = k.slice(s); return a.length > 3 ? a[a.length - 1] - a[0] : 0; };
     const oT = tail(px), uT = tail(py);
     if (oT < -1.5 && uT > 1) tips.push('文の終わりで上がっていますが、元の音声は下がっています。');
     else if (oT > 1.5 && uT < -1) tips.push('文の終わりで元の音声は上がっています（質問・強調）が、あなたは下がっています。');
   } else tips.push('音の高さをうまく測れませんでした（声が小さいか、元の音声のBGMが大きいです）。');
-  // Ritmo
+  // Rhythm
   const ratio = u.dur / Math.max(0.2, o.dur);
   const durS = Math.exp(-2.2 * Math.abs(Math.log(ratio)));
   let pauseS = 1, missed = [];
@@ -182,7 +182,7 @@ function compareShadow(o, u) {
   return { into, rit, missed, ratio, oc, uc, path, tips };
 }
 
-// ---------- Comparación de texto japonés (dictado y reconocimiento de voz) ----------
+// ---------- Japanese text comparison (dictation and speech recognition) ----------
 function kataToHira(s) { return s.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60)); }
 function normJa(s) {
   return kataToHira((s || '').normalize('NFKC'))
@@ -195,7 +195,7 @@ function lev(a, b) {
   for (let i = 1; i <= m; i++) { cur[0] = i; for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); [prev, cur] = [cur, prev]; }
   return prev[n];
 }
-// tokens: [{s, r, p}] ; alinea la entrada con los tokens aceptando kanji o lectura en kana.
+// tokens: [{s, r, p}] ; aligns the input with the tokens, accepting kanji or kana readings.
 function alignJa(tokens, input) {
   const inp = normJa(input);
   const T = tokens.map((t, i) => ({ i, forms: [...new Set([normJa(t.s), normJa(t.r || ''), ...(t.f ? [t.f.map(x => x[1] ? x[1] : x[0]).join('')].map(normJa) : [])].filter(Boolean))], opt: t.p === 'sym' || !normJa(t.s) }))
@@ -203,12 +203,12 @@ function alignJa(tokens, input) {
   const n = T.length, m = inp.length, INF = 1e9;
   const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(INF));
   const bk = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(null));
-  for (let j = 0; j <= m; j++) dp[0][j] = j; // caracteres sobrantes al principio
+  for (let j = 0; j <= m; j++) dp[0][j] = j; // extra characters at the start
   for (let k = 1; k <= n; k++) {
     const t = T[k - 1], L = t.forms.length ? Math.min(...t.forms.map(f => f.length)) : 0, Lmax = t.forms.length ? Math.max(...t.forms.map(f => f.length)) : 0;
     for (let j = 0; j <= m; j++) {
       if (dp[k - 1][j] >= INF) continue;
-      // saltar token
+      // skip token
       const skipC = t.opt ? 0 : L;
       if (dp[k - 1][j] + skipC < dp[k][j]) { dp[k][j] = dp[k - 1][j] + skipC; bk[k][j] = [j, skipC, '']; }
       if (t.opt) continue;
@@ -219,7 +219,7 @@ function alignJa(tokens, input) {
       }
     }
   }
-  // caracteres sobrantes al final
+  // extra characters at the end
   let bestJ = 0, best = INF; for (let j = 0; j <= m; j++) { const c = dp[n][j] + (m - j); if (c < best) { best = c; bestJ = j; } }
   const status = {}; let j = bestJ;
   for (let k = n; k >= 1; k--) { const b = bk[k][j]; if (!b) break; const t = T[k - 1]; status[t.i] = t.opt ? 'opt' : (b[1] === 0 ? 'ok' : (b[2] && b[1] <= Math.max(1, Math.floor(Math.min(...t.forms.map(f => f.length)) / 3)) ? 'close' : 'bad')); j = b[0]; }

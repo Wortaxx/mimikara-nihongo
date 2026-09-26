@@ -1,4 +1,4 @@
-# Empaqueta un episodio procesado en un .zip para importarlo en la app.
+# Packs a processed episode into a .zip to import into the app.
 import sys, os, zipfile
 src, dst = sys.argv[1], sys.argv[2]
 with zipfile.ZipFile(dst, "w", zipfile.ZIP_STORED) as z:

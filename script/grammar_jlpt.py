@@ -1,20 +1,20 @@
 # -*- coding: utf-8 -*-
-"""Gramática JLPT N5–N1 para detectar en los subtítulos.
+"""JLPT N5–N1 grammar to detect in the subtitles.
 
-Cada punto: G(id, nivel, etiqueta, patrón, respuesta corta, explicación, imabi, basico)
-- patrón: expresión regular sobre el texto sin espacios.
-  Si empieza por "K:", se busca en la cadena de tokens  " superficie/lema/pos1-pos2/forma".
-  Si es None, el punto aparece en la lista pero no se detecta automáticamente.
-- imabi: ruta de la lección en imabi.org (sin el dominio) o None.
-- basico: True para partículas muy frecuentes (no se resaltan en los resultados ni salen en el test).
-Las explicaciones están escritas para este proyecto (no se copian de ninguna web).
+Each entry: G(id, level, label, pattern, short answer, explanation, imabi, basic)
+- pattern: regular expression over the text without spaces.
+  If it starts with "K:", it is matched against the token string  " surface/lemma/pos1-pos2/form".
+  If it is None, the entry appears in the list but is not detected automatically.
+- imabi: path of the lesson on imabi.org (without the domain), or None.
+- basic: True for very frequent particles (not highlighted in the results and not asked in the quiz).
+The explanations were written for this project (not copied from any website).
 """
 GRAMMAR = []
 def G(id, lv, label, pat, q, ex, im=None, basic=False):
     GRAMMAR.append(dict(id=id, lv=lv, label=label, pat=pat, q=q, ex=ex, im=im, basic=basic))
 
-TE = r"/て/助詞-接続助詞/\S*"   # partícula て／で de la forma て
-S = r" [^/ ]+"                  # cualquier superficie
+TE = r"/て/助詞-接続助詞/\S*"   # the て／で particle of the て-form
+S = r" [^/ ]+"                  # any surface form
 
 # ======================================================================= N5
 G("wa", "N5", "〜は（主題）", r"K: は/は/助詞-係助詞", "話題を示す", "文のテーマ（何について話すか）を示す。「私は学生です」。", "the-particle-wa-%e3%81%af-i-the-topic-contrast-marker/", True)
@@ -586,7 +586,7 @@ G("kotogotoku", "N1", "ことごとく", r"ことごとく|悉く", "すべて",
 G("tokuni", "N1", "とりわけ／ことに", r"とりわけ|殊に", "特に", "ほかより特に。", "adverbs-for-especially/")
 G("youyaku", "N1", "〜にもほどがある", r"にもほどがある|にも程がある", "〜しすぎだ", "限度を超えていると非難する。", "the-particles-%e3%81%bb%e3%81%a9-%e3%81%8f%e3%82%89%e3%81%84/")
 
-# ---------------------------------------------------------------- ajustes tras probar con episodios reales
+# ---------------------------------------------------------------- adjustments after testing with real episodes
 _FIX = {
     "tte": r"K: って/って/助詞-(副助詞|係助詞)",
     "dake": r"だけ(?!ど|れど)",

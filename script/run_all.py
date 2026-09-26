@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
-"""Procesa todos los episodios de una carpeta y crea un .zip por episodio para la app.
+"""Processes every episode in a folder and creates one .zip per episode for the app.
 
-Uso (desde Anaconda Prompt):
+Usage (from Anaconda Prompt):
     python run_all.py "E:\\Anime\\Frieren"
-    python run_all.py "E:\\Anime\\Frieren" --solo S01E01 S01E02     (solo esos episodios)
-    python run_all.py "E:\\Anime\\Frieren" --salida "D:\\otra\\carpeta"  (guardar los .zip en otro sitio)
+    python run_all.py "E:\\Anime\\Frieren" --solo S01E01 S01E02     (only those episodes)
+    python run_all.py "E:\\Anime\\Frieren" --salida "D:\\other\\folder"  (save the .zip files somewhere else)
 
-Busca los vídeos (.mkv/.mp4) y sus subtítulos japoneses (.srt/.ass) en la carpeta y subcarpetas,
-los empareja por temporada y episodio y deja los paquetes en
-<carpeta del proyecto>\\paquetes\\anime\\<nombre de la serie> (la carpeta del proyecto es la que contiene "script").
-Los episodios que ya tengan paquete se saltan.
+Finds the videos (.mkv/.mp4) and their Japanese subtitles (.srt/.ass) in the folder and its subfolders,
+matches them by season and episode, and writes the packs to
+<project folder>\\paquetes\\anime\\<series name> (the project folder is the one that contains "script").
+Episodes that already have a pack are skipped.
 """
 import os, re, sys, shutil, argparse, time
 HERE = os.path.dirname(os.path.abspath(__file__))
-PROJECT = os.path.dirname(HERE)  # la carpeta que contiene "script" (y "app")
+PROJECT = os.path.dirname(HERE)  # the folder that contains "script" (and "app")
 sys.path.insert(0, HERE)
 import process
 try:
@@ -35,7 +35,7 @@ def main():
     ap.add_argument("--no-unir", action="store_true", help="no juntar las líneas seguidas del mismo personaje")
     a = ap.parse_args()
     root = a.carpeta
-    # Por defecto: <carpeta del proyecto>\paquetes\anime\<nombre de la carpeta de la serie>
+    # Default: <project folder>\paquetes\anime\<series folder name>
     serie = os.path.basename(os.path.normpath(root)) or "serie"
     out_dir = a.salida or os.path.join(PROJECT, "paquetes", "anime", serie)
     work = os.path.join(out_dir, "_trabajo")

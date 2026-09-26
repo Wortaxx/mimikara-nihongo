@@ -1505,7 +1505,7 @@ function viewListen(arg) {
     const now = sp.playing ? Math.min(total, abs) : l.st;
     bar.style.width = `${100 * now / total}%`; timeTxt.textContent = `${fmt(now)} / ${fmt(total)}`;
   };
-  const timer = setInterval(tick, 80); // requestAnimationFrame se para si la pestaña no se ve
+  const timer = setInterval(tick, 80); // requestAnimationFrame stops while the tab is hidden
   CLEANUP.push(() => clearInterval(timer));
   const markScroll = () => { userScroll = Date.now(); };
   addEventListener('wheel', markScroll, { passive: true }); addEventListener('touchmove', markScroll, { passive: true });
