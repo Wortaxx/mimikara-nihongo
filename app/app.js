@@ -594,7 +594,8 @@ function viewHome() {
   w.append(h('div', { class: 'section-title' }, '練習'));
   const m = h('div', { class: 'modes' });
   const tango = ['tango', '単語カード', `まだ覚えていない言葉を復習（今日 ${wordsDue()} 語）`, ICON.cards, 8];
-  const modes = book ? [MODES[0], ['listen', '章リスニング', '章を最初から聞きながら、文字を追いかける', ICON.headphones, 6], ...MODES.slice(1), tango] : [...MODES, tango];
+  const watch = ['listen', 'エピソードを通して見る', '動画を見ながら、字幕が言葉ごとに色づく', ICON.eye, 5];
+  const modes = book ? [MODES[0], ['listen', '章リスニング', '章を最初から聞きながら、文字を追いかける', ICON.headphones, 6], ...MODES.slice(1), tango] : [...MODES, watch, tango];
   for (const [id, t, d, ic, c] of modes) {
     const wide = id === 'mezcla' || id === 'listen' || id === 'tango';
     const el = h('button', { class: 'mode' + (id === 'mezcla' ? ' primary' : wide ? ' wide' : ''), style: `--c:var(--t${c});--cs:var(--t${c}s)`, onclick: () => id === 'listen' ? go('listen') : id === 'tango' ? go('wordquiz') : startRound(id) },
@@ -1393,7 +1394,7 @@ function wrapData(year) {
   const top = (o, n) => Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, n);
   return {
     year, day, daysOn: daysOn.length, answers, act, an, bk, plays, known, anki, look, kinds, kT, month, monthAct, week, best, bestDay,
-    anime: animeEps, books: Object.values(books).sort((a, b) => b.n - a.n), chDone: Y.chDone.length,
+    anime: animeEps, books: Object.values(books).sort((a, b) => b.n - a.n), chDone: Y.chDone.length, epDone: (Y.epDone || []).length,
     hours: Y.hours, topWords: top(Y.look, 5), topGram: top(Y.glook, 3), shadow: Y.shadow, shadowN: Y.shadowN,
     cards: kinds.tango ? kinds.tango.ok + kinds.tango.mid + kinds.tango.bad : 0,
   };
@@ -1506,7 +1507,7 @@ async function wrapSlides(year) {
       wrT(c, D.best >= 30 ? 'すごい！ 本当によく続けました。' : D.best >= 7 ? 'いいペース！ この調子で。' : '来年はもっと続けてみよう！', 60, 1640, 44, 700, WRC.acc);
     } else if (p === 'anime') {
       wrTitle(c, 'いちばん見たアニメ', `${D.anime.length}話を練習`);
-      wrT(c, `アニメを聞いた時間：${fmtMin(D.an)}`, 60, 520, 40, 600, WRC.mut);
+      wrT(c, `アニメを聞いた時間：${fmtMin(D.an)}${D.epDone ? `・最後まで見た話：${D.epDone}` : ''}`, 60, 520, 40, 600, WRC.mut, 'left', 960);
       let y = 600;
       for (const [k, x] of D.anime.slice(0, 5).entries()) {
         c.fillStyle = 'rgba(255,255,255,.06)'; wrRR(c, 60, y, 960, 220, 28); c.fill();
@@ -1707,8 +1708,8 @@ function viewAnkiBox() {
 
 // ================= オーディオブック =================
 // 文のクリップを順番に再生する小さなプレーヤー
-function seqPlayer({ onLine, onEnd } = {}) {
-  const a = new Audio(); a.preload = 'auto';
+function seqPlayer({ onLine, onEnd, media } = {}) { // media: 動画で再生するときの <video>
+  const a = media || new Audio(); a.preload = 'auto';
   let list = [], idx = -1, playing = false, token = 0;
   const playAt = async i => {
     const my = ++token;
@@ -1781,40 +1782,85 @@ function viewBookReader(epId) {
 
 // 章リスニング：章を最初から最後まで聞きながら、文字を追いかける（ライブ字幕のように）
 const bookChapters = ep => secEpIds('book').filter(id => S.eps[id].book === ep.book).sort((a, b) => (S.eps[a].chn || 0) - (S.eps[b].chn || 0));
+// 文の中の言葉ごとの位置（0〜1）：再生の進み具合に合わせて色をつける（カラオケ）
+const karaoke = (root, l) => {
+  const ws = [...root.querySelectorAll('.w')], toks = l.tk.filter(t => t.p !== 'sp');
+  let acc = 0; const tot = toks.reduce((n, t) => n + t.s.length, 0) || 1;
+  return ws.map((el, k) => { acc += toks[k] ? toks[k].s.length : 1; return [el, acc / tot]; });
+};
+// アニメは段落がないので、長い間（ま）で区切る
+const animeGroups = lines => { const g = []; let a = 0; for (let i = 1; i <= lines.length; i++) if (i === lines.length || lines[i].st - lines[i - 1].en > 6000 || i - a >= 8) { g.push([a, i - 1]); a = i; } return g; };
+// 章リスニング（本）／エピソードを通して見る（アニメ）：最初から最後まで再生しながら、文字を追いかける
 function viewListen(arg) {
-  const eps = secEpIds('book');
-  if (!eps.length) { toast('オーディオブックの章がありません。'); return go('home'); }
+  const book = arg && arg.ep && S.eps[arg.ep] ? epType(S.eps[arg.ep]) === 'book' : SEC() === 'book';
+  const eps = secEpIds(book ? 'book' : 'anime');
+  if (!eps.length) { toast(book ? 'オーディオブックの章がありません。' : 'エピソードがありません。'); return go('home'); }
   const pos = S.settings.listenPos || (S.settings.listenPos = {});
-  const epId = arg && eps.includes(arg.ep) ? arg.ep : eps.includes(S.settings.listenEp) ? S.settings.listenEp : eps[0];
-  S.settings.listenEp = epId; saveSettings();
+  const lastKey = book ? 'listenEp' : 'watchEp';
+  const epId = arg && eps.includes(arg.ep) ? arg.ep : eps.includes(S.settings[lastKey]) ? S.settings[lastKey] : eps[0];
+  S.settings[lastKey] = epId; saveSettings();
   const ep = S.eps[epId], lines = ep.lines, total = lines[lines.length - 1].en;
   const root = app(); root.innerHTML = '';
   const ankiSlot = h('div'); // 今の文を Anki に（再生中の文に合わせて入れかわる）
-  root.append(topbar('章リスニング', { back: true, right: ankiSlot }));
-  const w = h('div', { class: 'wrap has-bar listen' }); root.append(w);
+  root.append(topbar(book ? '章リスニング' : 'エピソードを通して見る', { back: true, right: ankiSlot }));
+  const w = h('div', { class: 'wrap has-bar listen' + (book ? '' : ' watch') }); root.append(w);
 
-  // 上：章の選択・速さ・先の文を見せるか・章の中の位置
+  // アニメ：上に動画（全画面では字幕つき）
+  let media = null, stage = null, subBox = null;
+  if (!book) {
+    media = h('video', { playsinline: true, preload: 'auto' });
+    subBox = h('div', { class: 'lv-sub' });
+    const hint = h('div', { class: 'lv-hint' }, '左：前の文　・　まん中：再生／一時停止　・　右：次の文');
+    const fsBtn = h('button', { class: 'lv-fs', 'aria-label': '全画面', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>' });
+    const exitBtn = h('button', { class: 'lv-exit', 'aria-label': '全画面をやめる', html: ICON.x });
+    stage = h('div', { class: 'lv-stage' }, media, subBox, hint, fsBtn, exitBtn);
+    const isFs = () => document.fullscreenElement === stage || stage.classList.contains('fs');
+    const enterFs = async () => {
+      // 本物の全画面が使えない・返事がないとき（iPhone など）は、画面いっぱいに広げる
+      const ok = stage.requestFullscreen ? await Promise.race([stage.requestFullscreen().then(() => true, () => false), new Promise(r => setTimeout(() => r(false), 600))]) : false;
+      if (!ok && document.fullscreenElement !== stage) stage.classList.add('fs');
+      try { await screen.orientation.lock('landscape'); } catch (e) { }
+      hint.classList.add('show'); setTimeout(() => hint.classList.remove('show'), 2600);
+    };
+    const exitFs = async () => { stage.classList.remove('fs'); if (document.fullscreenElement) try { await document.exitFullscreen(); } catch (e) { } try { screen.orientation.unlock(); } catch (e) { } };
+    fsBtn.onclick = e => { e.stopPropagation(); enterFs(); };
+    exitBtn.onclick = e => { e.stopPropagation(); exitFs(); };
+    stage.addEventListener('click', e => {
+      if (!isFs()) { togglePlay(); return; }
+      const x = e.clientX / innerWidth;
+      if (x < 0.3) playFrom(Math.max(0, cur - 1)); else if (x > 0.7) playFrom(Math.min(lines.length - 1, cur + 1)); else togglePlay();
+    });
+    CLEANUP.push(exitFs);
+    const onFs = () => { if (!document.fullscreenElement) try { screen.orientation.unlock(); } catch (e) { } };
+    document.addEventListener('fullscreenchange', onFs); CLEANUP.push(() => document.removeEventListener('fullscreenchange', onFs));
+    w.append(stage);
+  }
+
+  // 上：選択・速さ・翻訳・先の文を見せるか・位置
   const sel = h('select', { onchange: () => go('listen', { ep: sel.value }) }, eps.map(e => h('option', { value: e, selected: e === epId }, `${S.eps[e].book ? S.eps[e].book + '・' : ''}${epLabel(e)}`)));
   const rateBtn = h('button', { class: 'chip' + (S.settings.rate < 1 ? ' on' : ''), onclick: () => { S.settings.rate = S.settings.rate < 1 ? 1 : 0.75; rateBtn.classList.toggle('on', S.settings.rate < 1); sp.audio.playbackRate = S.settings.rate; saveSettings(); } }, 'ゆっくり');
   const aheadBtn = h('button', { class: 'chip' + (S.settings.listenAhead ? ' on' : ''), onclick: () => { S.settings.listenAhead = !S.settings.listenAhead; aheadBtn.classList.toggle('on', S.settings.listenAhead); w.classList.toggle('ahead', S.settings.listenAhead); saveSettings(); } }, '先の文も表示');
   w.classList.toggle('ahead', !!S.settings.listenAhead);
+  const trBtn = book ? null : h('button', { class: 'chip' + (S.settings.watchTr ? ' on' : ''), onclick: () => { S.settings.watchTr = !S.settings.watchTr; trBtn.classList.toggle('on', S.settings.watchTr); w.classList.toggle('tr', S.settings.watchTr); saveSettings(); if (cur >= 0) setSub(cur); } }, '翻訳');
+  w.classList.toggle('tr', !book && !!S.settings.watchTr);
   const timeTxt = h('span', { class: 'small muted', style: 'font-variant-numeric:tabular-nums' });
   const bar = h('i');
   const seek = h('div', { class: 'lv-seek', title: 'タップでその位置へ' }, bar);
   seek.addEventListener('click', e => { const r = seek.getBoundingClientRect(), t = (e.clientX - r.left) / r.width * total; let k = lines.findIndex(l => l.en >= t); playFrom(k < 0 ? lines.length - 1 : k); });
   w.append(h('div', { class: 'card lv-head' },
-    h('div', { class: 'row', style: 'gap:8px;flex-wrap:wrap' }, sel, rateBtn, aheadBtn),
+    h('div', { class: 'row', style: 'gap:8px;flex-wrap:wrap' }, sel, rateBtn, trBtn, aheadBtn),
     h('div', { class: 'row', style: 'gap:10px;align-items:center;margin-top:10px' }, seek, timeTxt)));
 
-  // 本文：段落ごとに文を並べる
+  // 本文：本は段落ごと、アニメは長い間で区切って、文を並べる
   const rows = [];
-  const passages = ep.passages && ep.passages.length ? ep.passages : [[0, lines.length - 1]];
+  const groups = book ? (ep.passages && ep.passages.length ? ep.passages : [[0, lines.length - 1]]) : animeGroups(lines);
   const text = h('div', { class: 'lv-text' });
-  for (const [a, b] of passages) {
+  for (const [a, b] of groups) {
     const par = h('div', { class: 'lv-par' });
     for (let i = a; i <= b; i++) {
       const l = lines[i];
-      const r = h('div', { class: 'lv-s future' + (l.dq ? ' dq' : '') }, h('div', { class: 'lv-txt' }, sentenceEl(l)), ankiBtn(l, true));
+      const txt = h('div', { class: 'lv-txt' }, book || !l.spk ? null : h('div', { class: 'lv-spk' }, l.spk), sentenceEl(l), !book && l.es ? h('div', { class: 'lv-tr' }, l.es) : null);
+      const r = h('div', { class: 'lv-s future' + (l.dq ? ' dq' : '') }, txt, ankiBtn(l, true));
       r.addEventListener('click', e => { if (e.target.closest('.w') && !r.classList.contains('future')) return; playFrom(i); });
       rows[i] = r; par.append(r);
     }
@@ -1825,19 +1871,25 @@ function viewListen(arg) {
   w.append(endBox);
 
   // 再生
-  let cur = -1, userScroll = 0, weights = [];
+  let cur = -1, userScroll = 0, weights = [], subWeights = [];
   const fmt = ms => { const s = Math.max(0, Math.floor(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+  const setSub = i => {
+    if (!subBox) return;
+    const l = lines[i];
+    subBox.replaceChildren(sentenceEl(l, { tap: false }), S.settings.watchTr && l.es ? h('div', { class: 'lv-sub-tr' }, l.es) : '');
+    subWeights = karaoke(subBox, l);
+  };
   const setCur = i => {
     cur = i;
     rows.forEach((r, k) => { r.classList.toggle('past', k < i); r.classList.toggle('cur', k === i); r.classList.toggle('future', k > i); if (k !== i) r.querySelectorAll('.said').forEach(x => x.classList.remove('said')); });
-    const ws = [...rows[i].querySelectorAll('.w')], toks = lines[i].tk.filter(t => t.p !== 'sp');
-    let acc = 0; const tot = toks.reduce((n, t) => n + t.s.length, 0) || 1;
-    weights = ws.map((el, k) => { acc += (toks[k] ? toks[k].s.length : 1); return [el, acc / tot]; });
+    weights = karaoke(rows[i], lines[i]);
+    setSub(i);
     ankiSlot.replaceChildren(ankiBtn(lines[i], 'top'));
     if (Date.now() - userScroll > 4000) rows[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
     pos[epId] = i; saveSettings();
   };
   const sp = seqPlayer({
+    media,
     onLine: (l, i) => { setCur(i); updBar(); },
     onEnd: () => { updBar(); finished(); },
   });
@@ -1846,7 +1898,7 @@ function viewListen(arg) {
     if (cur < 0) return;
     const l = lines[cur], abs = (l.cs || 0) + sp.audio.currentTime * 1000;
     const frac = sp.playing ? Math.min(1, Math.max(0, (abs - l.st) / Math.max(1, l.en - l.st))) : null;
-    if (frac != null) for (const [el, f] of weights) el.classList.toggle('said', f - 0.5 / (weights.length || 1) <= frac);
+    if (frac != null) for (const list of [weights, subWeights]) for (const [el, f] of list) el.classList.toggle('said', f - 0.5 / (list.length || 1) <= frac);
     const now = sp.playing ? Math.min(total, abs) : l.st;
     bar.style.width = `${100 * now / total}%`; timeTxt.textContent = `${fmt(now)} / ${fmt(total)}`;
   };
@@ -1856,19 +1908,20 @@ function viewListen(arg) {
   addEventListener('wheel', markScroll, { passive: true }); addEventListener('touchmove', markScroll, { passive: true });
   CLEANUP.push(() => { removeEventListener('wheel', markScroll); removeEventListener('touchmove', markScroll); });
   const playFrom = i => { endBox.innerHTML = ''; userScroll = 0; sp.load(lines); sp.play(i); };
+  const togglePlay = () => { if (sp.playing) { sp.stop(); updBar(); } else playFrom(cur >= 0 ? cur : 0); };
 
-  // 章の終わり：次の章があれば続けて再生
-  const chs = bookChapters(ep), next = chs[chs.indexOf(epId) + 1];
+  // 終わり：次の章／エピソードがあれば続けて再生
+  const chs = book ? bookChapters(ep) : eps, next = chs[chs.indexOf(epId) + 1];
   const finished = () => {
-    { const Y = yearRec(); if (!Y.chDone.includes(epId)) Y.chDone.push(epId); saveDaily(); }
+    { const Y = yearRec(), done = book ? Y.chDone : (Y.epDone || (Y.epDone = [])); if (!done.includes(epId)) done.push(epId); saveDaily(); }
     rows.forEach(r => { r.classList.remove('cur', 'future'); r.classList.add('past'); r.querySelectorAll('.said').forEach(x => x.classList.remove('said')); });
     pos[epId] = 0; saveSettings();
     endBox.innerHTML = '';
     endBox.append(h('div', { class: 'card', style: 'text-align:center' },
-      h('div', { style: 'font-weight:800;font-size:18px' }, 'この章はおしまい！'),
-      h('div', { class: 'small muted', style: 'margin:4px 0 12px' }, next ? `5秒後に次の章「${epLabel(next)}」へ` : 'おつかれさまでした。'),
-      next ? h('button', { class: 'btn primary', onclick: () => go('listen', { ep: next, auto: true }) }, '次の章へ') : null));
-    endBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      h('div', { style: 'font-weight:800;font-size:18px' }, book ? 'この章はおしまい！' : 'このエピソードはおしまい！'),
+      h('div', { class: 'small muted', style: 'margin:4px 0 12px' }, next ? `5秒後に次の${book ? '章' : '話'}「${epLabel(next)}」へ` : 'おつかれさまでした。'),
+      next ? h('button', { class: 'btn primary', onclick: () => go('listen', { ep: next, auto: true }) }, book ? '次の章へ' : '次の話へ') : null));
+    if (!document.fullscreenElement) endBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
     if (next) { const t = setTimeout(() => go('listen', { ep: next, auto: true }), 5000); CLEANUP.push(() => clearTimeout(t)); }
   };
 
@@ -1876,13 +1929,15 @@ function viewListen(arg) {
   const playBtn = h('button', { class: 'btn primary' });
   const prevBtn = h('button', { class: 'btn', style: 'flex:0 0 56px', 'aria-label': '前の文', html: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zM9.5 12l8.5 6V6z"/></svg>', onclick: () => playFrom(Math.max(0, cur - 1)) });
   const nextBtn = h('button', { class: 'btn', style: 'flex:0 0 56px', 'aria-label': '次の文', html: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg>', onclick: () => playFrom(Math.min(lines.length - 1, cur + 1)) });
-  const updBar = () => { playBtn.innerHTML = sp.playing ? ICON.stop + '<span>一時停止</span>' : ICON.headphones + `<span>${cur > 0 ? 'つづきから聞く' : '最初から聞く'}</span>`; };
-  playBtn.onclick = () => { if (sp.playing) { sp.stop(); updBar(); } else playFrom(cur >= 0 ? cur : 0); };
+  const verb = book ? '聞く' : '見る';
+  const updBar = () => { playBtn.innerHTML = sp.playing ? ICON.stop + '<span>一時停止</span>' : (book ? ICON.headphones : ICON.play) + `<span>${cur > 0 ? 'つづきから' + verb : '最初から' + verb}</span>`; };
+  playBtn.onclick = togglePlay;
   setBar(w, prevBtn, playBtn, nextBtn);
 
-  // 前回の続きの位置を表示（自動再生は次の章に進んだときだけ）
+  // 前回の続きの位置を表示（自動再生は次の章／話に進んだときだけ）
   const start = Math.min(pos[epId] || 0, lines.length - 1);
   if (start > 0 || (arg && arg.auto)) setCur(start);
+  if (media && start >= 0) clipUrl(lines[start].id).then(u => { if (u && !sp.playing) { media.src = u; media.currentTime = Math.max(0, (lines[start].st - (lines[start].cs || 0)) / 1000); } }); // 最初の1コマを見せる
   updBar();
   if (arg && arg.auto) playFrom(start);
 }

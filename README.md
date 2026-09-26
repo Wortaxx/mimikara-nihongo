@@ -39,6 +39,7 @@ A Python script on your PC cuts every subtitle line into its own clip, analyses 
 | 🔁 | **Spaced repetition** | Mistakes come back in 10 minutes; correct answers come back later and later, up to 120 days. |
 | 🃏 | **Word cards** | Vocabulary flashcards made from your episodes, each with a real example line and its clip. |
 | 📖 | **Reader** | The whole episode line by line, with translation, speaker and optional furigana. |
+| 📺 | **Watch whole episodes** | Play an episode from start to finish with a live transcript, or full screen with karaoke-style Japanese subtitles. |
 | 📚 | **Dictionary and grammar** | Tap any word for its meaning (JMdict); 560 JLPT grammar patterns from N5 to N1 with examples. |
 | 📊 | **Progress** | Daily goal, streaks, a 30-day chart and accuracy for each drill. |
 | 🎁 | **Yearly wrap-up** | Every January, a story-style summary of your year (days, hours, anime, audiobooks, words) that you can save as a PDF. |
@@ -78,6 +79,7 @@ flowchart LR
 - [✨ Features](#-features)
   - [Home screen](#home-screen) · [Episodes and importing](#episodes-and-importing)
   - [Practice drills](#practice-drills-練習): [Mixed](#mixed-practice-ミックス練習) · [Dictation](#dictation-書き取り) · [Fill in the blank](#fill-in-the-blank-穴埋め) · [Order](#sentence-order-並べ替え) · [Listening](#listening-聞き取り) · [Grammar](#grammar-文法) · [Shadowing](#shadowing-シャドーイング) · [Word cards](#word-cards-単語カード) · [Summary](#round-summary-結果)
+  - [Watch whole episodes](#watch-whole-episodes-エピソードを通して見る)
   - [Learning tools](#learning-tools-学ぶ): [Reader](#reader-読む) · [Furigana](#furigana) · [Word details](#word-details) · [Grammar details](#grammar-details) · [Vocabulary](#vocabulary-単語帳) · [Grammar list](#grammar-list-文法リスト)
   - [Progress](#progress-記録) · [Yearly wrap-up](#yearly-wrap-up-年間まとめ) · [Anki](#anki) · [Settings](#settings-設定) · [Light and dark themes](#light-and-dark-themes)
   - [Audiobooks](#audiobooks-オーディオブック): [Audiobook tab](#audiobook-tab) · [Chapter listening](#chapter-listening-章リスニング) · [Paragraph listening](#paragraph-listening-段落リスニング) · [Chapter reader](#chapter-reader-読む)
@@ -213,6 +215,24 @@ Vocabulary flashcards made from the words in your episodes, most frequent first.
 </p>
 
 At the end of each round: your score and every line you practised, with ✓, ✗ or ― (close). **もう1ラウンド** starts another round.
+
+### Watch whole episodes (エピソードを通して見る)
+
+<p align="center">
+  <img src="docs/screenshots/33-watch.png" width="260" alt="Watching an episode with a live transcript">
+</p>
+<p align="center">
+  <img src="docs/screenshots/34-watch-landscape.png" width="560" alt="Full screen with karaoke-style subtitles">
+</p>
+
+The wide **エピソードを通して見る** button on the アニメ tab plays an episode from start to finish, line after line, while the transcript follows along:
+
+- **Video at the top**, and below it the dialogue with **who is speaking** and, if you turn on **翻訳**, the translation. The line being spoken fills in word by word; lines still to come are blurred until you hear them (**先の文も表示** shows them).
+- **Full screen** (the ⛶ button on the video): the video turns landscape, with the current line as a **karaoke-style Japanese subtitle** that colours in as it is spoken, plus the translation if it is on. Tap the **left** side for the previous line, the **middle** to pause or resume, the **right** side for the next line, and ✕ to go back.
+- ⏮ ⏯ ⏭, **ゆっくり**, the time bar and **＋ Anki** work as in [chapter listening](#chapter-listening-章リスニング). It remembers where you stopped and moves on to the next episode at the end.
+
+> [!NOTE]
+> Clips are cut per line of dialogue, so the parts of the episode with nobody speaking (music, action, opening and ending) are skipped, and the video jumps from line to line. Clips are 360p: sharp enough on a phone in portrait, a little soft in full screen.
 
 ### Learning tools (学ぶ)
 
