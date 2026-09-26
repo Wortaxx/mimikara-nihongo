@@ -496,7 +496,26 @@ function topbar(title, { back = null, right = null } = {}) {
     h('h1', { html: title }), right);
 }
 function actionbar(...btns) { const b = h('div', { class: 'actionbar' }, h('div', { class: 'in' }, ...btns)); return b; }
+// アプリとしてインストール（Chrome が「インストールできる」と言ったときだけボタンを出す）
+let INSTALL_EV = null, VIEW_NOW = '';
+const isInstalled = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); INSTALL_EV = e; if (VIEW_NOW === 'home' || VIEW_NOW === 'settings') go(VIEW_NOW); });
+addEventListener('appinstalled', () => { INSTALL_EV = null; toast('インストールしました！ホーム画面のアイコンから開けます。', 4000); if (VIEW_NOW === 'home') go('home'); });
+async function installApp() {
+  if (!INSTALL_EV) return;
+  INSTALL_EV.prompt();
+  try { const r = await INSTALL_EV.userChoice; if (r.outcome === 'accepted') INSTALL_EV = null; } catch (e) { }
+}
+function installCard() {
+  if (!INSTALL_EV || isInstalled() || (S.settings.installHide || 0) > Date.now()) return null;
+  const card = h('div', { class: 'card install-card' },
+    h('div', { style: 'flex:1' }, h('b', {}, 'アプリとしてインストール'), h('div', { class: 'small muted' }, 'ホーム画面から、ブラウザなしで開けます。')),
+    h('button', { class: 'btn primary sm', onclick: installApp }, 'インストール'),
+    h('button', { class: 'iconbtn', 'aria-label': '閉じる', html: ICON.x, onclick: () => { S.settings.installHide = Date.now() + 14 * DAY; saveSettings(); card.remove(); } }));
+  return card;
+}
 function go(view, arg) {
+  VIEW_NOW = view;
   CLEANUP.forEach(f => { try { f(); } catch (e) { } }); CLEANUP = [];
   window.scrollTo(0, 0); stopRecording(); document.querySelectorAll('.sheet-bg').forEach(x => x.remove());
   VIEWS[view](arg);
@@ -557,6 +576,7 @@ function viewHome() {
       todayN >= goal ? h('span', { class: 'small', style: 'color:var(--ok);font-weight:700' }, '今日の目標、達成！') : h('span'),
       h('span', { class: 'small', style: 'color:var(--accent);font-weight:700' }, '記録を見る ›'))));
   { const b = wrapBanner(); if (b) w.append(b); }
+  { const c = installCard(); if (c) w.insertBefore(c, w.children[1] || null); }
   // 棚
   w.append(h('div', { class: 'section-title' }, book ? '章（タップで選ぶ）' : 'エピソード（タップで選ぶ）'));
   const shelf = h('div', { class: 'shelf' }); w.append(shelf);
@@ -666,6 +686,8 @@ function viewSettings() {
   }).catch(() => { });
   w.append(h('div', { class: 'card' }, cardHead(ICON.layers, 'ライブラリ', 6, `${eps.length} 件・アニメのエピソードとオーディオブックの章`), used, list,
     h('div', { class: 'imp2' }, imp('anime', 'アニメ（.zip）', ICON.plus), imp('book', '本の章（.zip）', ICON.plus))));
+  if (INSTALL_EV && !isInstalled()) w.append(h('div', { class: 'card' }, cardHead(ICON.download, 'アプリとしてインストール', 2),
+    setRow(ICON.plus, 'ホーム画面に追加', 'ブラウザではなく、ふつうのアプリのように開けます', h('button', { class: 'btn primary sm', onclick: installApp }, 'インストール'))));
   w.append(backupCard());
   w.append(h('div', { class: 'note-foot', html: ICON.shield + '<span>データはすべてこのスマホの中に保存されています。ブラウザのデータを消すと、エピソードと記録も消えます。</span>' }));
 }

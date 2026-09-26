@@ -2,6 +2,7 @@
   "name": "耳から日本語",
   "short_name": "耳から日本語",
   "description": "アニメのクリップで日本語を練習：書き取り、文法、シャドーイング。",
+  "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

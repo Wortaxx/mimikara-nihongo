@@ -552,7 +552,7 @@ The app in the `app/` folder is a set of static files with no build step.
 
 1. On GitHub, open the repository, go to **Settings → Pages**, and under *Build and deployment* choose **Deploy from a branch → `main` → `/ (root)`**.
 2. After a minute the app is live at `https://<your-user>.github.io/<repo-name>/app/`.
-3. Open that address in Chrome on your phone, then use **⋮ → Add to Home screen** to install it like a normal app.
+3. Open that address in **Chrome** on your phone and tap **インストール** on the card that appears on the home screen (or use **⋮ → Install app**). Choose **Install**, not "Create shortcut": a shortcut just opens the browser.
 
 Once installed, the app always opens instantly from the phone, even with no signal. When a new version is published it is downloaded in the background and used the next time you open the app.
 

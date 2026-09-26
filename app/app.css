@@ -366,3 +366,6 @@ select{-webkit-appearance:none;appearance:none;padding-right:34px;background-ima
 .lv-spk{font-size:12px;color:var(--muted);margin-bottom:1px}
 .lv-tr{font-size:14px;color:var(--muted);margin-top:3px;line-height:1.5}
 .watch:not(.tr) .lv-tr{display:none}
+
+/* インストールの案内 */
+.install-card{display:flex;align-items:center;gap:10px;border-color:var(--accent)}
