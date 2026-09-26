@@ -415,6 +415,11 @@ The whole chapter, grouped by paragraph. **最初から聞く** plays the chapte
 
 The app is live at **[wortaxx.github.io/mimikara-nihongo/app/](https://wortaxx.github.io/mimikara-nihongo/app/)**. It installs like a normal app: its own icon, full screen and no browser bar, and it works offline.
 
+<p align="center">
+  <img src="docs/qr-app.png" width="190" alt="QR code to open the app"><br>
+  <sub>Scan with your phone's camera to open the app</sub>
+</p>
+
 ### Android (Chrome)
 
 1. Open **[wortaxx.github.io/mimikara-nihongo/app/](https://wortaxx.github.io/mimikara-nihongo/app/)** in **Chrome**.
