@@ -10,7 +10,7 @@
 https://github.com/user-attachments/assets/c3345ee0-73a0-48cd-8b24-d3c5ea50347e
 
 
-[**Features**](#-features) · [**Quick start**](#-quick-start) · [**Setup guide**](#-setup-guide) · [**Anki**](#6-set-up-anki) · [**FAQ**](#-faq)
+[**📱 Install the app**](#-install-the-app-on-your-phone) · [**Features**](#-features) · [**Quick start**](#-quick-start) · [**Setup guide**](#-setup-guide) · [**Anki**](#6-set-up-anki) · [**FAQ**](#-faq)
 
 <br>
 
@@ -83,6 +83,7 @@ flowchart LR
   - [Learning tools](#learning-tools-学ぶ): [Reader](#reader-読む) · [Furigana](#furigana) · [Word details](#word-details) · [Grammar details](#grammar-details) · [Vocabulary](#vocabulary-単語帳) · [Grammar list](#grammar-list-文法リスト)
   - [Progress](#progress-記録) · [Yearly wrap-up](#yearly-wrap-up-年間まとめ) · [Anki](#anki) · [Settings](#settings-設定) · [Light and dark themes](#light-and-dark-themes)
   - [Audiobooks](#audiobooks-オーディオブック): [Audiobook tab](#audiobook-tab) · [Chapter listening](#chapter-listening-章リスニング) · [Paragraph listening](#paragraph-listening-段落リスニング) · [Chapter reader](#chapter-reader-読む)
+- [📱 Install the app on your phone](#-install-the-app-on-your-phone)
 - [🚀 Quick start](#-quick-start)
 - [🔧 Setup guide](#-setup-guide)
   - [1. Install the PC tools](#1-install-the-pc-tools)
@@ -410,11 +411,40 @@ The whole chapter, grouped by paragraph. **最初から聞く** plays the chapte
 
 ---
 
+## 📱 Install the app on your phone
+
+The app is live at **[wortaxx.github.io/mimikara-nihongo/app/](https://wortaxx.github.io/mimikara-nihongo/app/)**. It installs like a normal app: its own icon, full screen and no browser bar, and it works offline.
+
+### Android (Chrome)
+
+1. Open **[wortaxx.github.io/mimikara-nihongo/app/](https://wortaxx.github.io/mimikara-nihongo/app/)** in **Chrome**.
+2. Tap **インストール** on the **アプリとしてインストール** card on the home screen. Chrome only shows the card after you have tapped around for a few seconds.
+3. If the card does not appear, open Chrome's menu **⋮ → Install app** (or **Add to Home screen**, called **ホーム画面に追加** in Japanese Chrome) and choose **Install**, **not "Create shortcut"**. A shortcut just opens the browser.
+4. The 日 icon appears on your home screen and in the app drawer.
+
+### iPhone / iPad (Safari)
+
+1. Open the address in **Safari**.
+2. Tap **Share** (the square with an arrow) **→ Add to Home Screen → Add**.
+
+The app works on iOS, with a few limits: sending cards straight to AnkiDroid is Android-only (use `.apkg` export instead), and the pronunciation score in shadowing depends on Safari's speech recognition.
+
+### After installing
+
+- **Import your episodes:** copy the `.zip` packs to the phone and tap **＋ エピソードを追加**. See [Import the packs](#5-import-the-packs).
+- **Bring your progress from another device:** **⚙ 設定 → バックアップ → 記録を保存** there, then **記録をもどす** on the phone. See [Back up your progress](#7-back-up-your-progress).
+- **Updates:** they arrive automatically and are applied the next time you open the app. To get one right away, go to **⚙ 設定 → アプリ → 最新版に更新**. Your episodes and progress are kept.
+
+> [!WARNING]
+> Don't uninstall the app to update it: Android may delete its data together with it. Make a backup first if you ever need to.
+
+---
+
 ## 🚀 Quick start
 
 1. **Install** Python 3.10+ and run `pip install -r script/requirements.txt`.
 2. **Create packs** from a folder with your episodes and Japanese subtitles: `python script/run_all.py "E:\Anime\MySeries"`.
-3. **Open the app** on your phone, served over HTTPS (GitHub Pages works; see [step 4](#4-open-the-app-on-your-phone)), and add it to your home screen.
+3. **Install the app** on your phone from [wortaxx.github.io/mimikara-nihongo/app/](https://wortaxx.github.io/mimikara-nihongo/app/) (see [Install the app on your phone](#-install-the-app-on-your-phone)), or host your own copy ([step 4](#4-open-the-app-on-your-phone)).
 4. **Import** the `.zip` files with **＋ エピソードを追加**.
 5. **Practise.** Optionally, [connect AnkiDroid](#6-set-up-anki) and [back up](#7-back-up-your-progress) your progress from time to time.
 
@@ -543,7 +573,7 @@ python audiobook.py "C:\Audiobooks\MyBook\mp3"
 
 ### 4. Open the app on your phone
 
-The app in the `app/` folder is a set of static files with no build step.
+The app in the `app/` folder is a set of static files with no build step. **You can simply use the published copy at [wortaxx.github.io/mimikara-nihongo/app/](https://wortaxx.github.io/mimikara-nihongo/app/)** and [install it](#-install-the-app-on-your-phone): your episodes and progress stay on your phone either way. Host your own copy only if you want to change the code.
 
 > [!IMPORTANT]
 > Serve it over **HTTPS**. The microphone (shadowing), offline mode and "Add to Home screen" only work on HTTPS.
