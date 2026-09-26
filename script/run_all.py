@@ -34,6 +34,7 @@ def main():
     ap.add_argument("carpeta"); ap.add_argument("--solo", nargs="*"); ap.add_argument("--salida"); ap.add_argument("--rehacer", action="store_true", help="vuelve a crear también los episodios que ya tienen .zip")
     ap.add_argument("--no-unir", action="store_true", help="no juntar las líneas seguidas del mismo personaje")
     ap.add_argument("--calidad", choices=["normal", "ligera"], default="normal", help="ligera: clips a 270p, ~37% más pequeños")
+    ap.add_argument("--completo", action="store_true", help="incluir también el episodio completo en un solo vídeo (unos 25-30 MB más)")
     a = ap.parse_args()
     root = a.carpeta
     # Default: <project folder>\paquetes\anime\<series folder name>
@@ -63,11 +64,12 @@ def main():
         t0 = time.time()
         wdir = os.path.join(work, ep)
         try:
-            process.main(["--srt", subs[ep], "--video", videos[ep], "--ep", ep, "--out", wdir] + (["--no-unir"] if a.no_unir else []) + ["--calidad", a.calidad])
+            process.main(["--srt", subs[ep], "--video", videos[ep], "--ep", ep, "--out", wdir] + (["--no-unir"] if a.no_unir else []) + ["--calidad", a.calidad] + (["--completo"] if a.completo else []))
             import zipfile
             tmp = dst + ".part"
             with zipfile.ZipFile(tmp, "w", zipfile.ZIP_STORED) as z:
                 z.write(os.path.join(wdir, "episode.json"), "episode.json")
+                if a.completo and os.path.exists(os.path.join(wdir, "episode.mp4")): z.write(os.path.join(wdir, "episode.mp4"), "episode.mp4")
                 for f in sorted(os.listdir(os.path.join(wdir, "clips"))):
                     z.write(os.path.join(wdir, "clips", f), "clips/" + f)
             os.replace(tmp, dst)

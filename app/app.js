@@ -146,6 +146,8 @@ async function importZip(file, onStatus, kind) {
   const ep = JSON.parse(new TextDecoder().decode(files[jsonName]));
   if (kind && epType(ep) !== kind) throw new Error(epType(ep) === 'book' ? 'これはオーディオブックの .zip です。「オーディオブック」から読み込んでください。' : 'これはアニメの .zip です。「アニメ」から読み込んでください。');
   const clipNames = Object.keys(files).filter(n => /clips\/.+\.(mp4|m4a|webm|ogg)$/.test(n));
+  const fullName = Object.keys(files).find(n => /(^|\/)episode\.mp4$/.test(n)); // episodio completo (opcional)
+  if (fullName) { onStatus('エピソード全体の動画を保存中…'); await dbPut('clips', new Blob([files[fullName]], { type: 'video/mp4' }), ep.ep + '#full'); ep.full = true; }
   let n = 0;
   const d = await idb();
   for (let i = 0; i < clipNames.length; i += 25) {
@@ -166,7 +168,7 @@ async function importZip(file, onStatus, kind) {
 }
 async function deleteEpisode(epId) {
   const ep = S.eps[epId]; if (!ep) return;
-  await tx('clips', 'readwrite', s => { for (const l of ep.lines) s.delete(l.id); });
+  await tx('clips', 'readwrite', s => { for (const l of ep.lines) s.delete(l.id); s.delete(epId + '#full'); });
   await tx('eps', 'readwrite', s => { s.delete(epId); });
   delete S.thumbs[epId]; await dbPut('kv', S.thumbs, 'thumbs');
 }
@@ -298,7 +300,7 @@ function sentenceEl(l, opts = {}) {
 const POS_JA = { n: '名詞', pron: '代名詞', v: '動詞', adj: 'い形容詞', adjna: 'な形容詞', adv: '副詞', adn: '連体詞', conj: '接続詞', int: '感動詞', prt: '助詞', aux: '助動詞', pre: '接頭辞', suf: '接尾辞', pn: '固有名詞' };
 function sheet(content) {
   const bg = h('div', { class: 'sheet-bg', onclick: e => { if (e.target === bg) bg.remove(); } }, h('div', { class: 'sheet' }, h('div', { class: 'grip' }), content));
-  document.body.append(bg); return bg;
+  (document.fullscreenElement || document.body).append(bg); return bg;
 }
 function vocabEntry(base) { for (const e of Object.values(S.eps)) if (e.vocab && e.vocab[base]) return e.vocab[base]; return null; }
 function wordSheet(l, t) { wordSheetBase(t.b || t.s, t, l); }
@@ -1790,8 +1792,28 @@ const karaoke = (root, l) => {
 };
 // アニメは段落がないので、長い間（ま）で区切る
 const animeGroups = lines => { const g = []; let a = 0; for (let i = 1; i <= lines.length; i++) if (i === lines.length || lines[i].st - lines[i - 1].en > 6000 || i - a >= 8) { g.push([a, i - 1]); a = i; } return g; };
+// エピソード全体の動画を再生するプレーヤー（seqPlayer と同じ使い方）。今の文は動画の時間から決める
+function fullPlayer(v, lines, url, { onLine, onEnd } = {}) {
+  let idx = -1, playing = false;
+  v.src = url; v.preload = 'auto';
+  const find = t => { let lo = 0, hi = lines.length - 1, r = -1; while (lo <= hi) { const m = (lo + hi) >> 1; if (lines[m].st <= t + 60) { r = m; lo = m + 1; } else hi = m - 1; } return r; };
+  const check = () => { const i = find(v.currentTime * 1000); if (i >= 0 && i !== idx) { idx = i; onLine && onLine(lines[i], i); if (playing) logPlay(lines[i]); } };
+  v.addEventListener('timeupdate', check);
+  v.addEventListener('ended', () => { playing = false; onEnd && onEnd(); });
+  const api = {
+    load() { },
+    play(i = 0) { v.currentTime = Math.max(0, lines[i].st / 1000 - 0.3); idx = -1; playing = true; v.playbackRate = S.settings.rate; v.play().catch(() => { }); check(); },
+    resume() { playing = true; v.playbackRate = S.settings.rate; v.play().catch(() => { }); },
+    seek(ms) { v.currentTime = Math.max(0, ms / 1000); idx = -1; check(); if (playing) v.play().catch(() => { }); },
+    stop() { playing = false; v.pause(); },
+    now: () => v.currentTime * 1000, check, full: true,
+    get playing() { return playing; }, get idx() { return idx; }, get list() { return lines; }, get audio() { return v; },
+  };
+  CLEANUP.push(() => api.stop());
+  return api;
+}
 // 章リスニング（本）／エピソードを通して見る（アニメ）：最初から最後まで再生しながら、文字を追いかける
-function viewListen(arg) {
+async function viewListen(arg) {
   const book = arg && arg.ep && S.eps[arg.ep] ? epType(S.eps[arg.ep]) === 'book' : SEC() === 'book';
   const eps = secEpIds(book ? 'book' : 'anime');
   if (!eps.length) { toast(book ? 'オーディオブックの章がありません。' : 'エピソードがありません。'); return go('home'); }
@@ -1799,7 +1821,9 @@ function viewListen(arg) {
   const lastKey = book ? 'listenEp' : 'watchEp';
   const epId = arg && eps.includes(arg.ep) ? arg.ep : eps.includes(S.settings[lastKey]) ? S.settings[lastKey] : eps[0];
   S.settings[lastKey] = epId; saveSettings();
-  const ep = S.eps[epId], lines = ep.lines, total = lines[lines.length - 1].en;
+  const ep = S.eps[epId], lines = ep.lines;
+  const fullUrl = !book && ep.full ? await clipUrl(epId + '#full') : null; // エピソード全体の動画があれば最初から最後まで
+  let total = lines[lines.length - 1].en;
   const root = app(); root.innerHTML = '';
   const ankiSlot = h('div'); // 今の文を Anki に（再生中の文に合わせて入れかわる）
   root.append(topbar(book ? '章リスニング' : 'エピソードを通して見る', { back: true, right: ankiSlot }));
@@ -1825,6 +1849,8 @@ function viewListen(arg) {
     const exitFs = async () => { stage.classList.remove('fs'); if (document.fullscreenElement) try { await document.exitFullscreen(); } catch (e) { } try { screen.orientation.unlock(); } catch (e) { } };
     fsBtn.onclick = e => { e.stopPropagation(); enterFs(); };
     exitBtn.onclick = e => { e.stopPropagation(); exitFs(); };
+    // 全画面の字幕の言葉をタップ：止めて辞書を出す
+    subBox.addEventListener('click', e => { if (e.target.closest('.w') && sp.playing) { sp.stop(); updBar(); } }, true);
     stage.addEventListener('click', e => {
       if (!isFs()) { togglePlay(); return; }
       const x = e.clientX / innerWidth;
@@ -1846,10 +1872,15 @@ function viewListen(arg) {
   const timeTxt = h('span', { class: 'small muted', style: 'font-variant-numeric:tabular-nums' });
   const bar = h('i');
   const seek = h('div', { class: 'lv-seek', title: 'タップでその位置へ' }, bar);
-  seek.addEventListener('click', e => { const r = seek.getBoundingClientRect(), t = (e.clientX - r.left) / r.width * total; let k = lines.findIndex(l => l.en >= t); playFrom(k < 0 ? lines.length - 1 : k); });
+  seek.addEventListener('click', e => {
+    const r = seek.getBoundingClientRect(), t = (e.clientX - r.left) / r.width * total;
+    if (sp.full) { endBox.innerHTML = ''; if (!sp.playing) sp.resume(); sp.seek(t); updBar(); return; }
+    let k = lines.findIndex(l => l.en >= t); playFrom(k < 0 ? lines.length - 1 : k);
+  });
   w.append(h('div', { class: 'card lv-head' },
     h('div', { class: 'row', style: 'gap:8px;flex-wrap:wrap' }, sel, rateBtn, trBtn, aheadBtn),
-    h('div', { class: 'row', style: 'gap:10px;align-items:center;margin-top:10px' }, seek, timeTxt)));
+    h('div', { class: 'row', style: 'gap:10px;align-items:center;margin-top:10px' }, seek, timeTxt),
+    book ? null : h('div', { class: 'small muted', style: 'margin-top:8px' }, fullUrl ? 'エピソード全体を再生しています。' : 'セリフの部分だけを続けて再生しています（間の場面はとばします）。エピソード全体を見るには、PCで --completo をつけて作り直してください。')));
 
   // 本文：本は段落ごと、アニメは長い間で区切って、文を並べる
   const rows = [];
@@ -1876,7 +1907,7 @@ function viewListen(arg) {
   const setSub = i => {
     if (!subBox) return;
     const l = lines[i];
-    subBox.replaceChildren(sentenceEl(l, { tap: false }), S.settings.watchTr && l.es ? h('div', { class: 'lv-sub-tr' }, l.es) : '');
+    subBox.replaceChildren(sentenceEl(l), S.settings.watchTr && l.es ? h('div', { class: 'lv-sub-tr' }, l.es) : '');
     subWeights = karaoke(subBox, l);
   };
   const setCur = i => {
@@ -1888,19 +1919,19 @@ function viewListen(arg) {
     if (Date.now() - userScroll > 4000) rows[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
     pos[epId] = i; saveSettings();
   };
-  const sp = seqPlayer({
-    media,
-    onLine: (l, i) => { setCur(i); updBar(); },
-    onEnd: () => { updBar(); finished(); },
-  });
+  const events = { onLine: (l, i) => { setCur(i); updBar(); }, onEnd: () => { updBar(); finished(); } };
+  const sp = fullUrl ? fullPlayer(media, lines, fullUrl, events) : seqPlayer({ media, ...events });
   sp.load(lines);
+  if (sp.full) media.addEventListener('loadedmetadata', () => { if (media.duration) total = media.duration * 1000; });
   const tick = () => {
-    if (cur < 0) return;
-    const l = lines[cur], abs = (l.cs || 0) + sp.audio.currentTime * 1000;
-    const frac = sp.playing ? Math.min(1, Math.max(0, (abs - l.st) / Math.max(1, l.en - l.st))) : null;
+    if (sp.full) sp.check();
+    if (cur < 0) { if (sp.full) { const n = sp.now(); bar.style.width = `${100 * n / total}%`; timeTxt.textContent = `${fmt(n)} / ${fmt(total)}`; } return; }
+    const l = lines[cur], abs = sp.full ? sp.now() : (l.cs || 0) + sp.audio.currentTime * 1000;
+    const frac = sp.playing || sp.full ? Math.min(1, Math.max(0, (abs - l.st) / Math.max(1, l.en - l.st))) : null;
     if (frac != null) for (const list of [weights, subWeights]) for (const [el, f] of list) el.classList.toggle('said', f - 0.5 / (list.length || 1) <= frac);
-    const now = sp.playing ? Math.min(total, abs) : l.st;
-    bar.style.width = `${100 * now / total}%`; timeTxt.textContent = `${fmt(now)} / ${fmt(total)}`;
+    if (subBox) subBox.classList.toggle('idle', !!sp.full && (abs > l.en + 500 || abs < l.st - 400)); // 全体再生：セリフのない所では字幕を消す
+    const now = sp.full ? abs : sp.playing ? Math.min(total, abs) : l.st;
+    bar.style.width = `${100 * Math.min(1, now / total)}%`; timeTxt.textContent = `${fmt(now)} / ${fmt(total)}`;
   };
   const timer = setInterval(tick, 80); // requestAnimationFrame stops while the tab is hidden
   CLEANUP.push(() => clearInterval(timer));
@@ -1908,7 +1939,7 @@ function viewListen(arg) {
   addEventListener('wheel', markScroll, { passive: true }); addEventListener('touchmove', markScroll, { passive: true });
   CLEANUP.push(() => { removeEventListener('wheel', markScroll); removeEventListener('touchmove', markScroll); });
   const playFrom = i => { endBox.innerHTML = ''; userScroll = 0; sp.load(lines); sp.play(i); };
-  const togglePlay = () => { if (sp.playing) { sp.stop(); updBar(); } else playFrom(cur >= 0 ? cur : 0); };
+  const togglePlay = () => { if (sp.playing) { sp.stop(); updBar(); } else if (sp.full && media.currentTime > 0.5) { endBox.innerHTML = ''; sp.resume(); updBar(); } else playFrom(cur >= 0 ? cur : 0); };
 
   // 終わり：次の章／エピソードがあれば続けて再生
   const chs = book ? bookChapters(ep) : eps, next = chs[chs.indexOf(epId) + 1];
@@ -1937,7 +1968,8 @@ function viewListen(arg) {
   // 前回の続きの位置を表示（自動再生は次の章／話に進んだときだけ）
   const start = Math.min(pos[epId] || 0, lines.length - 1);
   if (start > 0 || (arg && arg.auto)) setCur(start);
-  if (media && start >= 0) clipUrl(lines[start].id).then(u => { if (u && !sp.playing) { media.src = u; media.currentTime = Math.max(0, (lines[start].st - (lines[start].cs || 0)) / 1000); } }); // 最初の1コマを見せる
+  if (sp.full) { if (start > 0) media.currentTime = Math.max(0, lines[start].st / 1000 - 0.3); } // 続きの位置の1コマを見せる
+  else if (media && start >= 0) clipUrl(lines[start].id).then(u => { if (u && !sp.playing) { media.src = u; media.currentTime = Math.max(0, (lines[start].st - (lines[start].cs || 0)) / 1000); } }); // 最初の1コマを見せる
   updBar();
   if (arg && arg.auto) playFrom(start);
 }

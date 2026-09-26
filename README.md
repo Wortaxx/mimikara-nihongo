@@ -228,11 +228,13 @@ At the end of each round: your score and every line you practised, with ✓, ✗
 The wide **エピソードを通して見る** button on the アニメ tab plays an episode from start to finish, line after line, while the transcript follows along:
 
 - **Video at the top**, and below it the dialogue with **who is speaking** and, if you turn on **翻訳**, the translation. The line being spoken fills in word by word; lines still to come are blurred until you hear them (**先の文も表示** shows them).
-- **Full screen** (the ⛶ button on the video): the video turns landscape, with the current line as a **karaoke-style Japanese subtitle** that colours in as it is spoken, plus the translation if it is on. Tap the **left** side for the previous line, the **middle** to pause or resume, the **right** side for the next line, and ✕ to go back.
+- **Full screen** (the ⛶ button on the video): the video turns landscape, with the current line as a **karaoke-style Japanese subtitle** that colours in as it is spoken, plus the translation if it is on. Tap the **left** side for the previous line, the **middle** to pause or resume, the **right** side for the next line, and ✕ to go back. **Tap a word in the subtitle** to pause and open its dictionary entry.
 - ⏮ ⏯ ⏭, **ゆっくり**, the time bar and **＋ Anki** work as in [chapter listening](#chapter-listening-章リスニング). It remembers where you stopped and moves on to the next episode at the end.
 
+**Whole episode or dialogue only.** If the pack was made with **`--completo`** (see [Create episode packs](#2-create-episode-packs-zip)), it contains the full episode as one video and the app plays it **from start to finish without cuts** (opening, music and action scenes included); the subtitle simply disappears while nobody is speaking. Packs made without it only have the clips, so the app plays the lines of dialogue one after another and skips everything in between. The screen tells you which of the two you are watching.
+
 > [!NOTE]
-> Clips are cut per line of dialogue, so the parts of the episode with nobody speaking (music, action, opening and ending) are skipped, and the video jumps from line to line. Clips are 360p: sharp enough on a phone in portrait, a little soft in full screen.
+> The full episode adds about 25–40 MB per episode at 360p. At 360p it looks sharp in portrait and a little soft in full screen.
 
 ### Learning tools (学ぶ)
 
@@ -487,6 +489,7 @@ The packs are written to `<project>\paquetes\anime\<series folder name>\S01E01.z
 | `--salida "D:\packs"` | Write the packs somewhere else. |
 | `--rehacer` | Rebuild episodes that already have a `.zip`, for example after updating the script. |
 | `--no-unir` | Don't merge consecutive subtitle lines from the same speaker into one sentence. |
+| `--completo` | Also include the **whole episode** as one video, so it can be watched from start to finish in [エピソードを通して見る](#watch-whole-episodes-エピソードを通して見る). Adds about 25–40 MB per episode. |
 | `--calidad ligera` | Lighter clips (270p instead of 360p): about **37 % smaller**, with hardly any visible difference on a phone. Use it together with `--rehacer` to shrink episodes you already made. |
 
 </details>
