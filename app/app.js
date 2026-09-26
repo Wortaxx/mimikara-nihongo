@@ -557,6 +557,7 @@ function viewHome() {
       h('h2', {}, book ? 'まだオーディオブックがありません' : 'まだエピソードがありません'),
       h('p', { class: 'muted' }, book ? 'PCの audiobook.py で作った章の .zip を読み込んでください。音声はこのスマホの中に保存され、オフラインでも使えます。' : 'PCのスクリプトで作ったエピソードの .zip を読み込んでください。クリップはこのスマホの中に保存され、オフラインでも使えます。'),
       importButton()));
+    { const c = installCard(); if (c) w.append(c); }
     return;
   }
   // ヒーロー
