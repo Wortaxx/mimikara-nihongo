@@ -97,6 +97,7 @@ flowchart LR
 - [📁 Project structure](#-project-structure)
 - [🔒 Privacy and copyright](#-privacy-and-copyright)
 - [🙏 Credits](#-credits)
+- [📄 License](#-license)
 
 ---
 
@@ -740,6 +741,12 @@ Then rebuild your packs with `--rehacer` so the new patterns are detected in the
 | **Grammar lessons** | Links to [IMABI](https://imabi.org/) |
 | **Direct AnkiDroid integration** | [AnkiConnect Android](https://github.com/KamWithK/AnkiconnectAndroid) |
 | **Music in the demo video** | [Petals On The Water (Japanese Fusion LoFi)](https://pixabay.com/music/beats-petals-on-the-water-full-version-japanese-fusion-lofi-392739/) by kaazoom, under the [Pixabay Content License](https://pixabay.com/service/license-summary/) |
+
+## 📄 License
+
+The code of this project (the app in `app/` and the scripts in `script/`) is released under the [MIT License](LICENSE).
+
+Third-party parts keep their own licences: the JMdict dictionary data (`script/jmdict_min.zip`) is under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), and the bundled libraries (sql.js, fflate) under their own open-source licences. The anime frames, subtitles and audiobook text shown in the screenshots and the demo video belong to their respective owners and are not covered by the MIT License.
 
 <div align="center">
 <br>
