@@ -304,7 +304,10 @@ function sentenceEl(l, opts = {}) {
   return el;
 }
 const POS_JA = { n: '名詞', pron: '代名詞', v: '動詞', adj: 'い形容詞', adjna: 'な形容詞', adv: '副詞', adn: '連体詞', conj: '接続詞', int: '感動詞', prt: '助詞', aux: '助動詞', pre: '接頭辞', suf: '接尾辞', pn: '固有名詞' };
+let SHEET_HOOK = null; // la vista actual puede pausar su reproductor al abrir una ficha
 function sheet(content) {
+  if (SHEET_HOOK) SHEET_HOOK();
+  document.querySelectorAll('video, audio').forEach(m => { if (!m.paused) m.pause(); });
   const bg = h('div', { class: 'sheet-bg', onclick: e => { if (e.target === bg) bg.remove(); } }, h('div', { class: 'sheet' }, h('div', { class: 'grip' }), content));
   (document.fullscreenElement || document.body).append(bg); return bg;
 }
@@ -326,6 +329,7 @@ function wordSheetBase(base, t, l) {
       h('p', { class: 'muted' }, p === 'pn' ? '人や場所などの名前です。' : p === 'prt' || p === 'aux' ? '文法の言葉です。文の「文法」ボタンで説明を見られます。' : '辞書にのっていません。'),
     h('p', { class: 'small muted' }, `エピソードの中で ${count} 回。意味は JMdict（英語）より。`),
   );
+  if (l) box.append(h('div', { class: 'row', style: 'gap:10px;align-items:center;margin:2px 0 8px' }, h('span', { class: 'small muted' }, 'この文を'), ankiBtn(l)));
   if (ex.length > 1 || (ex.length && !l)) {
     box.append(h('div', { class: 'section-title', style: 'margin-top:4px' }, '例文'));
     for (const x of ex.filter(x => x !== l).slice(0, 5)) {
@@ -701,7 +705,7 @@ function viewSettings() {
 }
 
 // ================= アプリの更新 =================
-const APP_VERSION = 13; // sw.js の CACHE（animejp-v13）と同じ番号にする
+const APP_VERSION = 14; // sw.js の CACHE（animejp-v13）と同じ番号にする
 async function latestVersion() {
   const txt = await fetch('sw.js?nc=' + Date.now(), { cache: 'no-store' }).then(r => r.text());
   const m = txt.match(/animejp-v(\d+)/); return m ? +m[1] : 0;
@@ -1885,31 +1889,58 @@ async function viewListen(arg) {
   const w = h('div', { class: 'wrap has-bar listen' + (book ? '' : ' watch') }); root.append(w);
 
   // アニメ：上に動画（全画面では字幕つき）
-  let media = null, stage = null, subBox = null;
+  let media = null, stage = null, subBox = null, cPlay = null, cTime = null, cRange = null, fsAnki = null, skip = null, dragging = false, ctlT = 0;
+  const PAUSE = I('<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>', 1);
+  const showCtl = () => { if (!stage) return; stage.classList.add('ctl'); clearTimeout(ctlT); ctlT = setTimeout(() => { if (sp.playing) stage.classList.remove('ctl'); }, 3000); };
   if (!book) {
     media = h('video', { playsinline: true, preload: 'auto' });
     subBox = h('div', { class: 'lv-sub' });
-    const hint = h('div', { class: 'lv-hint' }, '左：前の文　・　まん中：再生／一時停止　・　右：次の文');
+    const hint = h('div', { class: 'lv-hint' });
+    const skipL = h('div', { class: 'lv-skip l' }), skipR = h('div', { class: 'lv-skip r' });
+    cPlay = h('button', { class: 'lv-cplay', 'aria-label': '再生／一時停止' });
+    cTime = h('span', { class: 'lv-ctime' });
+    cRange = h('input', { type: 'range', min: 0, max: 1000, value: 0, class: 'lv-crange', 'aria-label': '再生位置' });
+    const ctrl = h('div', { class: 'lv-ctrl' }, cPlay, cTime, cRange);
+    fsAnki = h('div', { class: 'lv-fsanki' });
+    ctrl.addEventListener('click', e => e.stopPropagation());
+    cPlay.onclick = () => { togglePlay(); showCtl(); };
+    cRange.addEventListener('input', () => { dragging = true; cTime.textContent = `${fmt(cRange.value / 1000 * total)} / ${fmt(total)}`; showCtl(); });
+    cRange.addEventListener('change', () => { dragging = false; seekTo(cRange.value / 1000 * total); showCtl(); });
+    skip = dir => {
+      if (sp.full) seekTo(Math.max(0, Math.min(total - 500, sp.now() + dir * 10000)));
+      else playFrom(Math.max(0, Math.min(lines.length - 1, cur + dir)));
+      const el = dir < 0 ? skipL : skipR;
+      el.textContent = sp.full ? (dir < 0 ? '« 10秒' : '10秒 »') : (dir < 0 ? '« 前の文' : '次の文 »');
+      el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+    };
     const fsBtn = h('button', { class: 'lv-fs', 'aria-label': '全画面', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>' });
     const exitBtn = h('button', { class: 'lv-exit', 'aria-label': '全画面をやめる', html: ICON.x });
-    stage = h('div', { class: 'lv-stage' }, media, subBox, hint, fsBtn, exitBtn);
+    stage = h('div', { class: 'lv-stage' }, media, subBox, hint, skipL, skipR, ctrl, fsAnki, fsBtn, exitBtn);
     const isFs = () => document.fullscreenElement === stage || stage.classList.contains('fs');
     const enterFs = async () => {
       // 本物の全画面が使えない・返事がないとき（iPhone など）は、画面いっぱいに広げる
       const ok = stage.requestFullscreen ? await Promise.race([stage.requestFullscreen().then(() => true, () => false), new Promise(r => setTimeout(() => r(false), 600))]) : false;
       if (!ok && document.fullscreenElement !== stage) stage.classList.add('fs');
       try { await screen.orientation.lock('landscape'); } catch (e) { }
-      hint.classList.add('show'); setTimeout(() => hint.classList.remove('show'), 2600);
+      hint.textContent = sp.full ? '2回タップ：左 −10秒・右 +10秒　／　1回タップ：操作ボタン' : '2回タップ：左 前の文・右 次の文　／　1回タップ：操作ボタン';
+      hint.classList.add('show'); setTimeout(() => hint.classList.remove('show'), 3000);
     };
     const exitFs = async () => { stage.classList.remove('fs'); if (document.fullscreenElement) try { await document.exitFullscreen(); } catch (e) { } try { screen.orientation.unlock(); } catch (e) { } };
     fsBtn.onclick = e => { e.stopPropagation(); enterFs(); };
     exitBtn.onclick = e => { e.stopPropagation(); exitFs(); };
     // 全画面の字幕の言葉をタップ：止めて辞書を出す
     subBox.addEventListener('click', e => { if (e.target.closest('.w') && sp.playing) { sp.stop(); updBar(); } }, true);
+    // 1回タップ：操作ボタンを出す／隠す　2回タップ：左右で −10秒／+10秒（セリフだけのときは前後の文）、まん中で再生／一時停止
+    let lastTap = 0, tapT = 0;
     stage.addEventListener('click', e => {
-      if (!isFs()) { togglePlay(); return; }
-      const x = e.clientX / innerWidth;
-      if (x < 0.3) playFrom(Math.max(0, cur - 1)); else if (x > 0.7) playFrom(Math.min(lines.length - 1, cur + 1)); else togglePlay();
+      const r = stage.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, now = Date.now();
+      if (now - lastTap < 320) {
+        clearTimeout(tapT); lastTap = 0;
+        if (x < 0.38) skip(-1); else if (x > 0.62) skip(1); else { togglePlay(); showCtl(); }
+        return;
+      }
+      lastTap = now; clearTimeout(tapT);
+      tapT = setTimeout(() => { if (stage.classList.contains('ctl') && sp.playing) stage.classList.remove('ctl'); else showCtl(); }, 300);
     });
     CLEANUP.push(exitFs);
     const onFs = () => { if (!document.fullscreenElement) try { screen.orientation.unlock(); } catch (e) { } };
@@ -1963,6 +1994,8 @@ async function viewListen(arg) {
     if (!subBox) return;
     const l = lines[i];
     subBox.replaceChildren(sentenceEl(l), S.settings.watchTr && l.es ? h('div', { class: 'lv-sub-tr' }, l.es) : '');
+    subBox.classList.toggle('top', !!l.top); // el subtítulo original iba arriba (para no tapar un cartel del episodio)
+    if (fsAnki) fsAnki.replaceChildren(ankiBtn(l, 'top'));
     subWeights = karaoke(subBox, l);
   };
   const setCur = i => {
@@ -1975,11 +2008,19 @@ async function viewListen(arg) {
     pos[epId] = i; saveSettings();
   };
   const events = { onLine: (l, i) => { setCur(i); updBar(); }, onEnd: () => { updBar(); finished(); } };
+  SHEET_HOOK = () => { if (sp.playing) { sp.stop(); updBar(); } };
+  CLEANUP.push(() => { SHEET_HOOK = null; });
   const sp = fullUrl ? fullPlayer(media, lines, fullUrl, events) : seqPlayer({ media, ...events });
   sp.load(lines);
   if (sp.full) media.addEventListener('loadedmetadata', () => { if (media.duration) total = media.duration * 1000; });
+  const updCtl = now => {
+    if (!stage) return;
+    if (!dragging) { cRange.value = Math.round(1000 * Math.min(1, now / total)); cTime.textContent = `${fmt(now)} / ${fmt(total)}`; }
+    cPlay.innerHTML = sp.playing ? PAUSE : ICON.play; stage.classList.toggle('paused', !sp.playing);
+  };
   const tick = () => {
     if (sp.full) sp.check();
+    updCtl(sp.full ? sp.now() : cur >= 0 ? (sp.playing ? (lines[cur].cs || 0) + sp.audio.currentTime * 1000 : lines[cur].st) : 0);
     if (cur < 0) { if (sp.full) { const n = sp.now(); bar.style.width = `${100 * n / total}%`; timeTxt.textContent = `${fmt(n)} / ${fmt(total)}`; } return; }
     const l = lines[cur], abs = sp.full ? sp.now() : (l.cs || 0) + sp.audio.currentTime * 1000;
     const frac = sp.playing || sp.full ? Math.min(1, Math.max(0, (abs - l.st) / Math.max(1, l.en - l.st))) : null;
@@ -1994,6 +2035,10 @@ async function viewListen(arg) {
   addEventListener('wheel', markScroll, { passive: true }); addEventListener('touchmove', markScroll, { passive: true });
   CLEANUP.push(() => { removeEventListener('wheel', markScroll); removeEventListener('touchmove', markScroll); });
   const playFrom = i => { endBox.innerHTML = ''; userScroll = 0; sp.load(lines); sp.play(i); };
+  const seekTo = t => {
+    if (sp.full) { endBox.innerHTML = ''; sp.seek(t); updBar(); return; }
+    const k = lines.findIndex(l => l.en >= t); playFrom(k < 0 ? lines.length - 1 : k);
+  };
   const togglePlay = () => { if (sp.playing) { sp.stop(); updBar(); } else if (sp.full && media.currentTime > 0.5) { endBox.innerHTML = ''; sp.resume(); updBar(); } else playFrom(cur >= 0 ? cur : 0); };
 
   // 終わり：次の章／エピソードがあれば続けて再生

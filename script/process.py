@@ -300,7 +300,7 @@ def grammar_dict(lines):
 
 # ---------- merge lines from the same character ----------
 CONTINUES = re.compile(r"(て|で|が|けど|けれど|から|ので|のに|し|たら|ば|と|、|…|‥|っ|ながら|ても|でも|けども)$")
-def merge_events(events, offset, es_events, join=True, max_gap=700, max_ms=12000, max_chars=70, max_parts=4):
+def merge_events(events, offset, es_events, join=True, max_gap=700, max_ms=12000, max_chars=70, max_parts=4, is_top=lambda ev: False):
     """Merges consecutive lines from the same character into one sentence (one clip).
     The character comes from the name in brackets in the Japanese subtitles or,
     if there is none, from the "Actor" field of the video's Spanish/English subtitles."""
@@ -311,7 +311,7 @@ def merge_events(events, offset, es_events, join=True, max_gap=700, max_ms=12000
             if o > bo and (e.name or "").strip():
                 best, bo = e.name.strip().upper(), o
         return best
-    units = []  # [st, en, spk, text, ov, jp_label, es_actor, parts]
+    units = []  # [st, en, spk, text, ov, jp_label, es_actor, parts, arrow, top]
     for ev, (spk, text, ov) in events:
         st, en = ev.start - offset, ev.end - offset
         act = actor(st, en) if es_events else None
@@ -337,12 +337,12 @@ def merge_events(events, offset, es_events, join=True, max_gap=700, max_ms=12000
                 if act and not u[6]: u[6] = act
                 if not u[2] and spk: u[2] = spk
                 continue
-        units.append([st, en, spk, text, ov, spk, act, 1, arrow])
+        units.append([st, en, spk, text, ov, spk, act, 1, arrow, is_top(ev)])
     # the character's Japanese name, from the Actor field of the video's subtitles
     amap = {}
     for u in units:
         if u[5] and u[6]: amap.setdefault(u[6], u[5])
-    return [(u[0], u[1], u[2] or amap.get(u[6]), u[3], u[4]) for u in units]
+    return [(u[0], u[1], u[2] or amap.get(u[6]), u[3], u[4], u[9]) for u in units]
 
 # ---------- main ----------
 def main(argv=None):
@@ -395,13 +395,22 @@ def main(argv=None):
                 if KATA.match(nm) and len(nm) >= 2: NAMES.add(nm)
     vocab = {}
     lines = []
-    units = merge_events(events, offset, es_events, join=not a.no_unir)
+    # subtitles placed at the top of the screen (to leave room for on-screen text): {\an7-9}, \pos in the upper half, or a top-aligned style
+    play_y = float(raw.info.get("PlayResY", 0) or 0)
+    def is_top(ev):
+        if re.search(r"\\an[789]", ev.text): return True
+        m = re.search(r"\\pos\(\s*[-\d.]+\s*,\s*([-\d.]+)", ev.text)
+        if m and play_y: return float(m.group(1)) < play_y * 0.45
+        st_ = raw.styles.get(ev.style)
+        return bool(st_ and int(st_.alignment) in (7, 8, 9))
+    units = merge_events(events, offset, es_events, join=not a.no_unir, is_top=is_top)
     print(f"  líneas de subtítulo: {len(events)} → frases: {len(units)}")
-    for i, (st, en, spk, text, ov) in enumerate(units):
+    for i, (st, en, spk, text, ov, top) in enumerate(units):
         toks, gram = analyze_text(tagger, dic, text, ov, vocab)
         lid = f"{a.ep}_{i:04d}"
         line = {"id": lid, "i": i, "st": st, "en": en, "spk": spk, "t": text, "tk": toks,
                 "ch": chunks(toks), "gr": gram}
+        if top: line["top"] = True
         if es_events:
             line["es"] = es_for(st, en, es_events)
         lines.append(line)
