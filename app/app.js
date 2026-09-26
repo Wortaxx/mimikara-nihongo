@@ -705,7 +705,7 @@ function viewSettings() {
 }
 
 // ================= アプリの更新 =================
-const APP_VERSION = 14; // sw.js の CACHE（animejp-v13）と同じ番号にする
+const APP_VERSION = 15; // sw.js の CACHE（animejp-v15）と同じ番号にする
 async function latestVersion() {
   const txt = await fetch('sw.js?nc=' + Date.now(), { cache: 'no-store' }).then(r => r.text());
   const m = txt.match(/animejp-v(\d+)/); return m ? +m[1] : 0;

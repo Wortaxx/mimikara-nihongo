@@ -1,6 +1,6 @@
 // オフラインでも使えるように、アプリをキャッシュに保存する。
-const CACHE = 'animejp-v14';
-const FILES = ['./', 'index.html', 'app.css', 'app.js', 'audio.js', 'anki.js', 'grammar_ja.js', 'fflate.min.js', 'sql-wasm.js', 'sql-wasm.wasm', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
+const CACHE = 'animejp-v15';
+const FILES = ['./', 'index.html', 'app.css', 'app.js', 'audio.js', 'anki.js', 'grammar_ja.js', 'fflate.min.js', 'sql-wasm.js', 'sql-wasm.wasm', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'icon-maskable.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {
