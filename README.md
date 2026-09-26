@@ -620,24 +620,31 @@ To remove an episode or chapter, go to **⚙ 設定 → ライブラリ** and ta
 
 1. In any drill, the reader or a word's example lines, tap **＋ Anki** on the lines you want.
 2. Open **Anki** from the home screen (学ぶ → Anki).
-3. Choose the card layout, then tap **.apkg を作る** ("create .apkg").
-4. On Android the share menu opens: choose **AnkiDroid**. On a PC the file is downloaded; double-click it to import it into Anki.
+3. Choose the card layout, then tap **.apkg を作る** ("create .apkg"). The file (`mimikara_<date>_<n>.apkg`) is saved to your **Downloads** folder.
+4. Import it:
+   - **AnkiDroid:** in the deck list, tap **⋮ → Import** and pick the file from Downloads (or tap the file in the Files app and open it with AnkiDroid). Leave the import options as they are and tap **Import**. If you are ever asked to choose between *Add* and *Replace*, always choose **Add**: *Replace* would wipe your collection.
+   - **Desktop Anki:** double-click the file.
 
-Re-exporting the same line updates the existing card instead of creating a duplicate. The deck is called `耳から日本語::アニメ` (or `…::オーディオブック`).
+Re-exporting the same line updates the existing card instead of creating a duplicate. Anime lines go to the deck `耳から日本語::アニメ` and audiobook lines to `耳から日本語::オーディオブック`.
 
 #### Option 2: straight into AnkiDroid when you tap ＋
 
 This uses [AnkiConnect Android](https://github.com/KamWithK/AnkiconnectAndroid), a free companion app that lets other apps on the phone add cards to AnkiDroid.
 
-1. Install **[AnkiDroid](https://play.google.com/store/apps/details?id=com.ichi2.anki)**, and install **AnkiConnect Android** from its [GitHub releases](https://github.com/KamWithK/AnkiconnectAndroid/releases).
-2. Open AnkiConnect Android, allow it to access AnkiDroid, and start the service.
-3. In Mimikara Nihongo, go to **⚙ 設定 → AnkiDroid に直接追加** and turn the switch on. The instructions that appear show **your app's address**, for example `https://your-user.github.io`.
+1. Install **[AnkiDroid](https://play.google.com/store/apps/details?id=com.ichi2.anki)**, and install **AnkiConnect Android** from its [GitHub releases](https://github.com/KamWithK/AnkiconnectAndroid/releases) (the `.apk` file). It is not on the Play Store, so Android asks you to allow installing apps from your browser, and Play Protect may warn about an unknown app. Only install the file from that official releases page.
+2. Open AnkiConnect Android, allow it to access AnkiDroid, and tap **Start Service**.
+3. In Mimikara Nihongo, go to **⚙ 設定 → AnkiDroid に直接追加** and turn the switch on. The instructions that appear show **your app's address** (for the hosted app, `https://wortaxx.github.io`).
 4. In AnkiConnect Android's settings, paste that address into **CORS Host**. Without it, the phone's browser blocks the connection.
-5. Import **one** `.apkg` from Option 1 into AnkiDroid. This creates the card type and the deck, which AnkiConnect Android cannot create by itself.
-6. Tap **接続テスト** ("connection test"). When you see ✓, every ＋ goes straight into AnkiDroid.
+5. Import **one** `.apkg` from Option 1 into AnkiDroid. This creates the card type and the deck, which AnkiConnect Android cannot create by itself. Do it once with an anime line, and once with an audiobook line if you also want audiobook cards (they use their own deck).
+6. Tap **接続テスト** ("connection test"). When you see ✓, every ＋ goes straight into the deck, with a **AnkiDroid に追加しました** message.
+
+Day to day:
+
+- **AnkiConnect Android's service must be running**; AnkiDroid itself does not need to be open. After restarting the phone, open AnkiConnect Android and start the service again.
+- **Don't rename the decks or the card type** in AnkiDroid: the app looks for them by name. You can move cards to other decks afterwards.
 
 > [!TIP]
-> If Chrome asks whether the page may access devices on your local network, allow it. If Android keeps closing AnkiConnect Android, turn off battery optimisation for it. Cards that cannot be sent stay in the Anki screen, with a **AnkiDroid に直接送る** button to send everything pending later.
+> If Chrome asks whether the page may access devices on your local network, allow it. If Android keeps closing AnkiConnect Android, set its battery usage to **Unrestricted**. Cards that cannot be sent stay in the Anki screen, with a **AnkiDroid に直接送る** button to send everything pending later.
 
 ### 7. Back up your progress
 
