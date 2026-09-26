@@ -6,6 +6,10 @@
 
 ### Learn Japanese by ear, from the anime and audiobooks you actually watch and listen to.
 
+
+https://github.com/user-attachments/assets/bc756a39-f841-44d2-824f-dfeb25272c5b
+
+
 [**Features**](#-features) · [**Quick start**](#-quick-start) · [**Setup guide**](#-setup-guide) · [**Anki**](#6-set-up-anki) · [**FAQ**](#-faq)
 
 <br>
