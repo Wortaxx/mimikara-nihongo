@@ -564,10 +564,10 @@ function viewHome() {
   w.append(h('div', { class: 'section-title' }, '練習'));
   const m = h('div', { class: 'modes' });
   const tango = ['tango', '単語カード', `まだ覚えていない言葉を復習（今日 ${wordsDue()} 語）`, ICON.cards, 8];
-  const modes = book ? [MODES[0], ['parrafo', '段落リスニング', '段落を通して聞いて、あとで文を確認', ICON.headphones, 6], ...MODES.slice(1), tango] : [...MODES, tango];
+  const modes = book ? [MODES[0], ['listen', '章リスニング', '章を最初から聞きながら、文字を追いかける', ICON.headphones, 6], ...MODES.slice(1), tango] : [...MODES, tango];
   for (const [id, t, d, ic, c] of modes) {
-    const wide = id === 'mezcla' || id === 'parrafo' || id === 'tango';
-    const el = h('button', { class: 'mode' + (id === 'mezcla' ? ' primary' : wide ? ' wide' : ''), style: `--c:var(--t${c});--cs:var(--t${c}s)`, onclick: () => id === 'parrafo' ? go('passage') : id === 'tango' ? go('wordquiz') : startRound(id) },
+    const wide = id === 'mezcla' || id === 'listen' || id === 'tango';
+    const el = h('button', { class: 'mode' + (id === 'mezcla' ? ' primary' : wide ? ' wide' : ''), style: `--c:var(--t${c});--cs:var(--t${c}s)`, onclick: () => id === 'listen' ? go('listen') : id === 'tango' ? go('wordquiz') : startRound(id) },
       h('span', { class: 'ic', html: ic }), h('span', { class: 'tx' }, h('span', { class: 't' }, t), h('span', { class: 'd' }, d)));
     if (!wide) { el.append(...el.querySelector('.tx').childNodes); el.querySelector('.tx').remove(); }
     m.append(el);
@@ -1359,7 +1359,7 @@ function seqPlayer({ onLine, onEnd } = {}) {
     load(lines) { list = lines; idx = -1; },
     play(i = 0) { playAt(i); },
     stop() { token++; playing = false; a.pause(); },
-    get playing() { return playing; }, get idx() { return idx; }, get list() { return list; },
+    get playing() { return playing; }, get idx() { return idx; }, get list() { return list; }, get audio() { return a; },
   };
   CLEANUP.push(() => api.stop());
   return api;
@@ -1412,6 +1412,113 @@ function viewBookReader(epId) {
   playBtn.onclick = () => { if (sp.playing) { sp.stop(); updBar(); } else sp.play(sp.idx >= 0 ? sp.idx : 0); };
   updBar();
   setBar(w, prevBtn, playBtn, nextBtn);
+}
+
+// 章リスニング：章を最初から最後まで聞きながら、文字を追いかける（ライブ字幕のように）
+const bookChapters = ep => secEpIds('book').filter(id => S.eps[id].book === ep.book).sort((a, b) => (S.eps[a].chn || 0) - (S.eps[b].chn || 0));
+function viewListen(arg) {
+  const eps = secEpIds('book');
+  if (!eps.length) { toast('オーディオブックの章がありません。'); return go('home'); }
+  const pos = S.settings.listenPos || (S.settings.listenPos = {});
+  const epId = arg && eps.includes(arg.ep) ? arg.ep : eps.includes(S.settings.listenEp) ? S.settings.listenEp : eps[0];
+  S.settings.listenEp = epId; saveSettings();
+  const ep = S.eps[epId], lines = ep.lines, total = lines[lines.length - 1].en;
+  const root = app(); root.innerHTML = '';
+  const ankiSlot = h('div'); // 今の文を Anki に（再生中の文に合わせて入れかわる）
+  root.append(topbar('章リスニング', { back: true, right: ankiSlot }));
+  const w = h('div', { class: 'wrap has-bar listen' }); root.append(w);
+
+  // 上：章の選択・速さ・先の文を見せるか・章の中の位置
+  const sel = h('select', { onchange: () => go('listen', { ep: sel.value }) }, eps.map(e => h('option', { value: e, selected: e === epId }, `${S.eps[e].book ? S.eps[e].book + '・' : ''}${epLabel(e)}`)));
+  const rateBtn = h('button', { class: 'chip' + (S.settings.rate < 1 ? ' on' : ''), onclick: () => { S.settings.rate = S.settings.rate < 1 ? 1 : 0.75; rateBtn.classList.toggle('on', S.settings.rate < 1); sp.audio.playbackRate = S.settings.rate; saveSettings(); } }, 'ゆっくり');
+  const aheadBtn = h('button', { class: 'chip' + (S.settings.listenAhead ? ' on' : ''), onclick: () => { S.settings.listenAhead = !S.settings.listenAhead; aheadBtn.classList.toggle('on', S.settings.listenAhead); w.classList.toggle('ahead', S.settings.listenAhead); saveSettings(); } }, '先の文も表示');
+  w.classList.toggle('ahead', !!S.settings.listenAhead);
+  const timeTxt = h('span', { class: 'small muted', style: 'font-variant-numeric:tabular-nums' });
+  const bar = h('i');
+  const seek = h('div', { class: 'lv-seek', title: 'タップでその位置へ' }, bar);
+  seek.addEventListener('click', e => { const r = seek.getBoundingClientRect(), t = (e.clientX - r.left) / r.width * total; let k = lines.findIndex(l => l.en >= t); playFrom(k < 0 ? lines.length - 1 : k); });
+  w.append(h('div', { class: 'card lv-head' },
+    h('div', { class: 'row', style: 'gap:8px;flex-wrap:wrap' }, sel, rateBtn, aheadBtn),
+    h('div', { class: 'row', style: 'gap:10px;align-items:center;margin-top:10px' }, seek, timeTxt)));
+
+  // 本文：段落ごとに文を並べる
+  const rows = [];
+  const passages = ep.passages && ep.passages.length ? ep.passages : [[0, lines.length - 1]];
+  const text = h('div', { class: 'lv-text' });
+  for (const [a, b] of passages) {
+    const par = h('div', { class: 'lv-par' });
+    for (let i = a; i <= b; i++) {
+      const l = lines[i];
+      const r = h('div', { class: 'lv-s future' + (l.dq ? ' dq' : '') }, h('div', { class: 'lv-txt' }, sentenceEl(l)), ankiBtn(l, true));
+      r.addEventListener('click', e => { if (e.target.closest('.w') && !r.classList.contains('future')) return; playFrom(i); });
+      rows[i] = r; par.append(r);
+    }
+    text.append(par);
+  }
+  w.append(h('div', { class: 'card', style: 'padding:14px 12px' }, text));
+  const endBox = h('div');
+  w.append(endBox);
+
+  // 再生
+  let cur = -1, userScroll = 0, weights = [];
+  const fmt = ms => { const s = Math.max(0, Math.floor(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+  const setCur = i => {
+    cur = i;
+    rows.forEach((r, k) => { r.classList.toggle('past', k < i); r.classList.toggle('cur', k === i); r.classList.toggle('future', k > i); if (k !== i) r.querySelectorAll('.said').forEach(x => x.classList.remove('said')); });
+    const ws = [...rows[i].querySelectorAll('.w')], toks = lines[i].tk.filter(t => t.p !== 'sp');
+    let acc = 0; const tot = toks.reduce((n, t) => n + t.s.length, 0) || 1;
+    weights = ws.map((el, k) => { acc += (toks[k] ? toks[k].s.length : 1); return [el, acc / tot]; });
+    ankiSlot.replaceChildren(ankiBtn(lines[i], 'top'));
+    if (Date.now() - userScroll > 4000) rows[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    pos[epId] = i; saveSettings();
+  };
+  const sp = seqPlayer({
+    onLine: (l, i) => { setCur(i); updBar(); },
+    onEnd: () => { updBar(); finished(); },
+  });
+  sp.load(lines);
+  const tick = () => {
+    if (cur < 0) return;
+    const l = lines[cur], abs = (l.cs || 0) + sp.audio.currentTime * 1000;
+    const frac = sp.playing ? Math.min(1, Math.max(0, (abs - l.st) / Math.max(1, l.en - l.st))) : null;
+    if (frac != null) for (const [el, f] of weights) el.classList.toggle('said', f - 0.5 / (weights.length || 1) <= frac);
+    const now = sp.playing ? Math.min(total, abs) : l.st;
+    bar.style.width = `${100 * now / total}%`; timeTxt.textContent = `${fmt(now)} / ${fmt(total)}`;
+  };
+  const timer = setInterval(tick, 80); // requestAnimationFrame se para si la pestaña no se ve
+  CLEANUP.push(() => clearInterval(timer));
+  const markScroll = () => { userScroll = Date.now(); };
+  addEventListener('wheel', markScroll, { passive: true }); addEventListener('touchmove', markScroll, { passive: true });
+  CLEANUP.push(() => { removeEventListener('wheel', markScroll); removeEventListener('touchmove', markScroll); });
+  const playFrom = i => { endBox.innerHTML = ''; userScroll = 0; sp.load(lines); sp.play(i); };
+
+  // 章の終わり：次の章があれば続けて再生
+  const chs = bookChapters(ep), next = chs[chs.indexOf(epId) + 1];
+  const finished = () => {
+    rows.forEach(r => { r.classList.remove('cur', 'future'); r.classList.add('past'); r.querySelectorAll('.said').forEach(x => x.classList.remove('said')); });
+    pos[epId] = 0; saveSettings();
+    endBox.innerHTML = '';
+    endBox.append(h('div', { class: 'card', style: 'text-align:center' },
+      h('div', { style: 'font-weight:800;font-size:18px' }, 'この章はおしまい！'),
+      h('div', { class: 'small muted', style: 'margin:4px 0 12px' }, next ? `5秒後に次の章「${epLabel(next)}」へ` : 'おつかれさまでした。'),
+      next ? h('button', { class: 'btn primary', onclick: () => go('listen', { ep: next, auto: true }) }, '次の章へ') : null));
+    endBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (next) { const t = setTimeout(() => go('listen', { ep: next, auto: true }), 5000); CLEANUP.push(() => clearTimeout(t)); }
+  };
+
+  // 下のバー
+  const playBtn = h('button', { class: 'btn primary' });
+  const prevBtn = h('button', { class: 'btn', style: 'flex:0 0 56px', 'aria-label': '前の文', html: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zM9.5 12l8.5 6V6z"/></svg>', onclick: () => playFrom(Math.max(0, cur - 1)) });
+  const nextBtn = h('button', { class: 'btn', style: 'flex:0 0 56px', 'aria-label': '次の文', html: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg>', onclick: () => playFrom(Math.min(lines.length - 1, cur + 1)) });
+  const updBar = () => { playBtn.innerHTML = sp.playing ? ICON.stop + '<span>一時停止</span>' : ICON.headphones + `<span>${cur > 0 ? 'つづきから聞く' : '最初から聞く'}</span>`; };
+  playBtn.onclick = () => { if (sp.playing) { sp.stop(); updBar(); } else playFrom(cur >= 0 ? cur : 0); };
+  setBar(w, prevBtn, playBtn, nextBtn);
+
+  // 前回の続きの位置を表示（自動再生は次の章に進んだときだけ）
+  const start = Math.min(pos[epId] || 0, lines.length - 1);
+  if (start > 0 || (arg && arg.auto)) setCur(start);
+  updBar();
+  if (arg && arg.auto) playFrom(start);
 }
 
 // 段落リスニング：段落を通して聞く → 文を確認 → 自己評価
@@ -1485,7 +1592,7 @@ function viewPassage(arg) {
   setBar(w, h('button', { class: 'btn primary', onclick: reveal }, '文字を見る'));
 }
 
-const VIEWS = { wordquiz: viewWordQuiz, wordsum: viewWordSummary, stats: viewStats, ankibox: viewAnkiBox, passage: viewPassage, home: viewHome, settings: viewSettings, reader: viewReader, vocab: viewVocab, summary: viewSummary, glist: viewGrammarList };
+const VIEWS = { listen: viewListen, wordquiz: viewWordQuiz, wordsum: viewWordSummary, stats: viewStats, ankibox: viewAnkiBox, passage: viewPassage, home: viewHome, settings: viewSettings, reader: viewReader, vocab: viewVocab, summary: viewSummary, glist: viewGrammarList };
 
 // ================= 起動 =================
 (async () => {
