@@ -270,7 +270,7 @@ Optional, and off by default. When turned on in Settings (ふりがなを表示�
   <img src="docs/screenshots/13-word-sheet.png" width="260" alt="Word details">
 </p>
 
-Tap any word anywhere in the app to see its dictionary form, reading, pitch accent, part of speech, meanings (JMdict, in English), how often it appears, and example lines with audio. **覚えた？** marks it as known.
+Tap any word anywhere in the app to see its dictionary form, reading, pitch accent, part of speech, meanings (or [your own Yomitan dictionaries](#use-your-own-yomitan-dictionaries-optional)) (JMdict, in English), how often it appears, and example lines with audio. **覚えた？** marks it as known.
 
 #### Grammar details
 
@@ -552,6 +552,32 @@ The packs are written to `<project>\paquetes\anime\<series folder name>\S01E01.z
 
 </details>
 
+#### Use your own Yomitan dictionaries (optional)
+
+If you use [Yomitan](https://yomitan.wiki/), the packs can carry **your own dictionaries**, shown in the order you like: a pitch-accent dictionary, a Japanese monolingual dictionary, JMdict, JMnedict for names, KANJIDIC for each kanji, and so on.
+
+1. In Yomitan's settings, go to **Backup → Export Dictionary Collection**. This downloads `yomitan-dictionaries-<date>.json`, which can be several hundred MB.
+2. Move that file into the `script` folder and convert it once (about 30 seconds):
+
+   ```bash
+   python yomitan_import.py
+   ```
+
+   This creates `script/dicts.sqlite`.
+3. Create your packs as usual. Every pack now includes a small `dict.json` (about 0.5 MB per episode) with the entries for **only the words in that episode**, so the phone never has to hold the whole dictionaries.
+
+With the dictionaries in a pack:
+
+- **Word details** show every dictionary's entry, in order, as sections you can fold (the app remembers which ones you folded), with KANJIDIC's readings and meanings for each kanji.
+- **Word cards** show the pitch accent, a one-line Japanese definition and the dictionary entries on the back.
+- **Anki cards** list, for each word, its accent, the English meaning, the Japanese definition and the meaning of each kanji.
+- The **pitch accent** drill and diagrams use your accent dictionary instead of UniDic where it has the word, including alternative accents.
+
+The order is set in `ORDER` at the top of `yomitan_import.py` (matched by part of each dictionary's title): accent, 新明解, JMdict, JMnedict, KANJIDIC, KireiCake, frequency. Run `yomitan_import.py` again after adding dictionaries to Yomitan, then recreate the packs with `--rehacer`.
+
+> [!IMPORTANT]
+> Many Yomitan dictionaries are commercial works. They stay on your PC and in your own packs: `yomitan-dictionaries-*.json` and `dicts.sqlite` are in `.gitignore`, so never share packs made with them.
+
 ### 3. Create audiobook packs (optional)
 
 Put the book in a folder with **one audio file per chapter** (`.mp3`, `.m4b`, `.m4a`, `.aac`, `.flac`, `.wav`, `.ogg` or `.opus`). Chapter numbers are read from names like `Book title - 03 - Chapter name.mp3`, or from any number in the file name.
@@ -767,6 +793,8 @@ Then rebuild your packs with `--rehacer` so the new patterns are detected in the
 │   ├── run_all.py          Processes a whole anime folder → one .zip per episode
 │   ├── process.py          Processes one episode
 │   ├── audiobook.py        Processes an audiobook → one .zip per chapter
+│   ├── yomitan_import.py   Converts a Yomitan dictionary export into dicts.sqlite (optional)
+│   ├── yomi.py             Looks words up in dicts.sqlite for the packs
 │   ├── grammar_jlpt.py     Grammar definitions (N5–N1)
 │   ├── export_grammar.py   Regenerates app/grammar_ja.js
 │   └── jmdict_min.zip      Compact JMdict dictionary

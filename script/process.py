@@ -457,6 +457,8 @@ def main(argv=None):
         if os.path.exists(os.path.join(a.out, p)): os.remove(os.path.join(a.out, p))
 
     grammar = grammar_dict(lines)
+    from yomi import enrich
+    enrich(vocab, a.out)   # your Yomitan dictionaries (dict.json), if dicts.sqlite exists
     ep = {"v": 1, "ep": a.ep, "title": title, "tlang": tlang, "offset": offset, "lines": lines, "vocab": vocab, "grammar": grammar}
     if a.completo and a.video and not a.no_video: ep["full"] = "episode.mp4"; ep["fullq"] = int(a.completo)
     with open(os.path.join(a.out, "episode.json"), "w", encoding="utf-8") as f:

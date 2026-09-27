@@ -69,6 +69,7 @@ def main():
             tmp = dst + ".part"
             with zipfile.ZipFile(tmp, "w", zipfile.ZIP_STORED) as z:
                 z.write(os.path.join(wdir, "episode.json"), "episode.json")
+                if os.path.exists(os.path.join(wdir, "dict.json")): z.write(os.path.join(wdir, "dict.json"), "dict.json")
                 if a.completo and os.path.exists(os.path.join(wdir, "episode.mp4")): z.write(os.path.join(wdir, "episode.mp4"), "episode.mp4")
                 for f in sorted(os.listdir(os.path.join(wdir, "clips"))):
                     z.write(os.path.join(wdir, "clips", f), "clips/" + f)

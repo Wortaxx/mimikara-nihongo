@@ -135,6 +135,8 @@ def process_chapter(audio, n, title, book, book_id, out_dir, tr_dir, args, tagge
         l["clip"] = f"clips/{l['id']}.m4a"; l["cs"] = int(s0 * 1000)
         if k % 25 == 0: print(f"\r  clips {k}/{len(lines)}", end="", flush=True)
     print(f"\r  clips {len(lines)}/{len(lines)}")
+    from yomi import enrich
+    enrich(vocab, work)   # your Yomitan dictionaries (dict.json), if dicts.sqlite exists
     ep = {"v": 1, "type": "book", "ep": cid, "book": book, "chn": n, "title": title, "tlang": None,
           "passages": passages, "lines": lines, "vocab": vocab, "grammar": process.grammar_dict(lines),
           "asr": tr.get("model")}
@@ -143,6 +145,7 @@ def process_chapter(audio, n, title, book, book_id, out_dir, tr_dir, args, tagge
     tmp = dst + ".part"
     with zipfile.ZipFile(tmp, "w", zipfile.ZIP_STORED) as z:
         z.write(os.path.join(work, "episode.json"), "episode.json")
+        if os.path.exists(os.path.join(work, "dict.json")): z.write(os.path.join(work, "dict.json"), "dict.json")
         for fn in sorted(os.listdir(cdir)): z.write(os.path.join(cdir, fn), "clips/" + fn)
     os.replace(tmp, dst); shutil.rmtree(work, ignore_errors=True)
     print(f"  listo: {os.path.basename(dst)} — {len(lines)} frases, {len(passages)} párrafos, {os.path.getsize(dst) // (1024 * 1024)} MB")

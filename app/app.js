@@ -2,7 +2,7 @@
 /* 耳から日本語 — アニメのクリップで日本語を勉強するアプリ。データはすべてスマホの中（IndexedDB）に保存。 */
 
 // ================= 保存 =================
-const DB_NAME = 'animejp', DB_VER = 1;
+const DB_NAME = 'animejp', DB_VER = 2;
 let _db;
 function idb() {
   if (_db) return Promise.resolve(_db);
@@ -14,6 +14,7 @@ function idb() {
       if (!d.objectStoreNames.contains('clips')) d.createObjectStore('clips');
       if (!d.objectStoreNames.contains('prog')) d.createObjectStore('prog', { keyPath: 'id' });
       if (!d.objectStoreNames.contains('kv')) d.createObjectStore('kv');
+      if (!d.objectStoreNames.contains('yomi')) d.createObjectStore('yomi'); // Yomitan の辞書（言葉ごと・漢字ごと）
     };
     r.onsuccess = () => { _db = r.result; res(_db); };
     r.onerror = () => rej(r.error);
@@ -152,6 +153,8 @@ async function importZip(file, onStatus, kind) {
   if (!jsonName) throw new Error('.zip の中に episode.json がありません。');
   const ep = JSON.parse(new TextDecoder().decode(files[jsonName]));
   if (kind && epType(ep) !== kind) throw new Error(epType(ep) === 'book' ? 'これはオーディオブックの .zip です。「オーディオブック」から読み込んでください。' : 'これはアニメの .zip です。「アニメ」から読み込んでください。');
+  const dictName = Object.keys(files).find(n => /(^|\/)dict\.json$/.test(n));
+  if (dictName) { onStatus('辞書を保存中…'); await saveYomi(JSON.parse(new TextDecoder().decode(files[dictName]))); }
   const clipNames = Object.keys(files).filter(n => /clips\/.+\.(mp4|m4a|webm|ogg)$/.test(n));
   const fullName = Object.keys(files).find(n => /(^|\/)episode\.mp4$/.test(n)); // episodio completo (opcional)
   if (fullName) { onStatus('エピソード全体の動画を保存中…'); await dbPut('clips', new Blob([files[fullName]], { type: 'video/mp4' }), ep.ep + '#full'); ep.full = true; }
@@ -172,6 +175,38 @@ async function importZip(file, onStatus, kind) {
   await dbPut('eps', ep);
   delete S.thumbs[ep.ep]; await dbPut('kv', S.thumbs, 'thumbs');
   return { ep: ep.ep, lines: ep.lines.length, clips: n };
+}
+// Yomitan の辞書：言葉は 'w:言葉' → [[辞書名, html], …]、漢字は 'k:字' → [音, 訓, 意味, JLPT, 画数, 学年]
+async function saveYomi(D) {
+  const titles = D.d || [];
+  await tx('yomi', 'readwrite', s => {
+    s.put(titles, 'titles');
+    for (const [w, ents] of Object.entries(D.w || {})) s.put(ents.map(([i, html]) => [titles[i] || '', html]), 'w:' + w);
+    for (const [c, k] of Object.entries(D.k || {})) s.put(k, 'k:' + c);
+  });
+}
+const yomiShort = t => t.replace(/\s*\[[^\]]*\]\s*/g, '').replace(/\s*第.版$/, '').trim();
+// ある言葉の辞書の欄（なければ null）。順番は Yomitan で決めた順
+async function dictBlocks(base) {
+  const get = k => dbGet('yomi', k).catch(() => null);
+  const [ents, titles] = await Promise.all([get('w:' + base), get('titles')]);
+  const kan = (await Promise.all([...new Set(base)].filter(c => /[一-鿿]/.test(c)).map(async c => [c, await get('k:' + c)]))).filter(x => x[1]);
+  if (!(ents && ents.length) && !kan.length) return null;
+  const T = titles || [], rank = t => { const i = T.indexOf(t); return i < 0 ? 99 : i; };
+  const closed = S.settings.ydClosed || (S.settings.ydClosed = []);
+  const block = (title, ...body) => {
+    const d = h('details', { class: 'yd', open: !closed.includes(yomiShort(title)) }, h('summary', {}, yomiShort(title)), ...body);
+    d.addEventListener('toggle', () => { const k = yomiShort(title), i = closed.indexOf(k); if (d.open && i >= 0) closed.splice(i, 1); else if (!d.open && i < 0) closed.push(k); saveSettings(); });
+    return d;
+  };
+  const parts = (ents || []).map(([t, html]) => [rank(t), block(t, h('div', { class: 'ydb', html }))]);
+  if (kan.length) {
+    const kt = T.find(t => /KANJIDIC|漢字/i.test(t)) || 'KANJIDIC';
+    parts.push([rank(kt), block(kt, ...kan.map(([c, k]) => h('div', { class: 'ykj' }, h('span', { class: 'ykc' }, c),
+      h('div', {}, h('div', { class: 'small' }, [k[0] && '音：' + k[0], k[1] && '訓：' + k[1]].filter(Boolean).join('　')), h('div', {}, (k[2] || []).join('、')),
+        k[4] ? h('div', { class: 'small muted' }, `${k[4]}画`) : null))))]);
+  }
+  return h('div', { class: 'ydicts' }, parts.sort((a, b) => a[0] - b[0]).map(x => x[1]));
 }
 async function deleteEpisode(epId) {
   const ep = S.eps[epId]; if (!ep) return;
@@ -348,8 +383,9 @@ function homophones(r) {
   }
   return HOMO.get(sec).get(r) || [];
 }
-function pitchRow(r, a) {
-  return h('div', { class: 'pitchrow' }, h('span', { html: pitchSvg(r, a) }), h('span', { class: 'small muted' }, `アクセント：${pitchName(a, moraeOf(r).length)}`));
+function pitchRow(r, a, all) {
+  const list = all && all.length ? all : [a], n = moraeOf(r).length;
+  return h('div', { class: 'pitchrow' }, list.map(x => h('span', { html: pitchSvg(r, x) })), h('span', { class: 'small muted' }, `アクセント：${list.map(x => `${pitchName(x, n)} [${x}]`).join('・')}`));
 }
 function wordSheet(l, t) { wordSheetBase(t.b || t.s, t, l); }
 function wordSheetBase(base, t, l) {
@@ -363,13 +399,15 @@ function wordSheetBase(base, t, l) {
   const box = h('div', {},
     h('div', { class: 'row', style: 'justify-content:space-between;align-items:flex-start' }, h('div', { class: 'hw' }, base), kb),
     h('div', { class: 'rd' }, ['読み：' + ((v && v.r) || (t && t.r) || '―'), POS_JA[p] || ''].filter(Boolean).join('　・　')),
-    v && v.a != null && v.r ? pitchRow(v.r, v.a) : null,
+    v && v.a != null && v.r ? pitchRow(v.r, v.a, v.aa) : null,
     t && t.b && t.b !== t.s ? h('div', { class: 'small muted' }, `この文では「${t.s}」`) : null,
-    v && v.g && v.g.length ? h('ol', {}, v.g.map(g => h('li', {}, g))) :
-      h('p', { class: 'muted' }, p === 'pn' ? '人や場所などの名前です。' : p === 'prt' || p === 'aux' ? '文法の言葉です。文の「文法」ボタンで説明を見られます。' : '辞書にのっていません。'),
-    h('p', { class: 'small muted' }, `エピソードの中で ${count} 回。意味は JMdict（英語）より。`),
+    v && v.g && v.g.length ? h('ol', { class: 'jmg' }, v.g.map(g => h('li', {}, g))) :
+      h('p', { class: 'muted jmg' }, p === 'pn' ? '人や場所などの名前です。' : p === 'prt' || p === 'aux' ? '文法の言葉です。文の「文法」ボタンで説明を見られます。' : '辞書にのっていません。'),
+    h('p', { class: 'small muted' }, `エピソードの中で ${count} 回。`, h('span', { class: 'jmg' }, '意味は JMdict（英語）より。')),
   );
-  if (l) box.append(h('div', { class: 'row', style: 'gap:10px;align-items:center;margin:2px 0 8px' }, h('span', { class: 'small muted' }, 'この文を'), ankiBtn(l)));
+  const dictSlot = h('div'); box.append(dictSlot);
+  dictBlocks(base).then(el => { if (el) { dictSlot.replaceWith(el); box.querySelectorAll('.jmg').forEach(x => x.remove()); } });
+  if (l) dictSlot.before(h('div', { class: 'row', style: 'gap:10px;align-items:center;margin:2px 0 8px' }, h('span', { class: 'small muted' }, 'この文を'), ankiBtn(l)));
   if (ex.length > 1 || (ex.length && !l)) {
     box.append(h('div', { class: 'section-title', style: 'margin-top:4px' }, '例文'));
     for (const x of ex.filter(x => x !== l).slice(0, 5)) {
@@ -435,8 +473,12 @@ const ankiOpt = () => S.settings.anki || (S.settings.anki = { text: false, fmt: 
 const ankiClipName = l => l.id + (isBook(l) ? '.m4a' : '.mp4');
 const ankiTags = l => [isBook(l) ? 'オーディオブック' : 'アニメ', l.ep];
 function ankiFields(l, opt, name) {
-  const words = l.tk.filter(t => CONTENT_P.includes(t.p) && vocabOf(l, t)?.g?.length).filter((t, i, a) => a.findIndex(x => x.b === t.b) === i)
-    .map(t => { const v = vocabOf(l, t); return `<b>${esc(t.b)}</b>（${esc(v.r)}）：${esc(v.g[0])}`; }).join('<br>');
+  const words = l.tk.filter(t => CONTENT_P.includes(t.p) && (vocabOf(l, t)?.g?.length || vocabOf(l, t)?.ja)).filter((t, i, a) => a.findIndex(x => x.b === t.b) === i)
+    .map(t => {
+      const v = vocabOf(l, t), acc = v.a != null ? ` <small>[${(v.aa || [v.a]).join('/')}] ${pitchName(v.a, moraeOf(v.r || '').length)}</small>` : '';
+      return `<b>${esc(t.b)}</b>（${esc(v.r)}）${acc}${v.g && v.g.length ? '：' + esc(v.g[0]) : ''}`
+        + (v.ja ? `<br><span style="opacity:.85">${esc(v.ja)}</span>` : '') + (v.km ? `<br><small style="opacity:.7">${esc(v.km)}</small>` : '');
+    }).join('<br><br>');
   const seenG = new Set();
   const gram = (l.gr || []).filter(g => S.grammar[g[0]] && !gBasic(g[0]) && !seenG.has(g[0]) && seenG.add(g[0])).map(g => `<b>${esc(gLv(g[0]))} ${esc(S.grammar[g[0]][0])}</b>：${esc(S.grammar[g[0]][1])}`).join('<br>');
   const media = !name ? '' : (isBook(l) || opt.fmt === 'sound') ? `[sound:${name}]` : `<video src="${name}" controls autoplay playsinline></video>`;
@@ -746,7 +788,7 @@ function viewSettings() {
 }
 
 // ================= アプリの更新 =================
-const APP_VERSION = 17; // sw.js の CACHE（animejp-v17）と同じ番号にする
+const APP_VERSION = 18; // sw.js の CACHE（animejp-v18）と同じ番号にする
 async function latestVersion() {
   const txt = await fetch('sw.js?nc=' + Date.now(), { cache: 'no-store' }).then(r => r.text());
   const m = txt.match(/animejp-v(\d+)/); return m ? +m[1] : 0;
@@ -1447,10 +1489,15 @@ function viewWordQuiz(cont) {
   const answer = ok => { vgrade(w.b, ok); if (ok) WQ.ok++; WQ.log.push({ w, ok }); viewWordQuiz(true); };
   const reveal = () => {
     const ex = exampleFor(w.b);
+    const ve = vocabEntry(w.b) || w;
+    const dictSlot = h('div');
     back.append(h('div', { class: 'card' },
       h('div', { style: 'font-size:20px;font-weight:700;font-family:var(--ja)' }, w.r),
-      h('ol', { style: 'margin:8px 0 0;padding-left:20px' }, w.g.slice(0, 3).map(g => h('li', {}, g))),
-      h('p', { class: 'small muted', style: 'margin:8px 0 0' }, '意味は JMdict（英語）より。')));
+      ve.a != null && w.r ? pitchRow(w.r, ve.a, ve.aa) : null,
+      ve.ja ? h('p', { style: 'margin:8px 0 0' }, ve.ja) : null,
+      h('ol', { class: 'jmg', style: 'margin:8px 0 0;padding-left:20px' }, w.g.slice(0, 3).map(g => h('li', {}, g))),
+      h('p', { class: 'small muted jmg', style: 'margin:8px 0 0' }, '意味は JMdict（英語）より。'), dictSlot));
+    dictBlocks(w.b).then(el => { if (el) { dictSlot.replaceWith(el); back.querySelectorAll('.jmg').forEach(x => x.remove()); } });
     if (ex) {
       const i = ex.tk.findIndex(t => t.b === w.b);
       back.append(playerEl(ex), h('div', { class: 'card' }, ex.spk ? h('div', { class: 'spk' }, ex.spk) : null, sentenceEl(ex, { hl: [i, i] }),

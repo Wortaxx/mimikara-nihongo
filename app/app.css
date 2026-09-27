@@ -398,3 +398,16 @@ select{-webkit-appearance:none;appearance:none;padding-right:34px;background-ima
 .pitchopts .opt{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px}
 .pitchopts .pname{font-size:13px;color:var(--muted);visibility:hidden}
 .pitchopts.done .pname{visibility:visible}
+/* Yomitan の辞書 */
+.ydicts{margin:6px 0 10px}
+.yd{border-top:1px solid var(--line);padding:6px 0}
+.yd summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--accent);list-style:none}
+.yd summary::-webkit-details-marker{display:none}
+.yd summary::before{content:'▾ '}
+.yd:not([open]) summary::before{content:'▸ '}
+.ydb{font-size:14px;line-height:1.6;margin-top:4px;overflow-wrap:anywhere}
+.ydb ul,.ydb ol{margin:.2em 0;padding-left:1.4em}
+.ydb [data-sc=examples],.ydb [data-sc=references]{color:var(--muted);font-size:13px}
+.ydb hr{border:0;border-top:1px dashed var(--line);margin:6px 0}
+.ykj{display:flex;gap:12px;align-items:flex-start;margin:6px 0}
+.ykc{font-size:32px;line-height:1.1;font-family:var(--ja);min-width:1.2em}

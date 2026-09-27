@@ -7,3 +7,7 @@ __pycache__/
 
 # Se extrae solo de jmdict_min.zip la primera vez que se usa el script
 script/jmdict_min.db
+
+# Your own Yomitan dictionaries (commercial dictionaries must never be published)
+script/yomitan-dictionaries-*.json
+script/dicts.sqlite
