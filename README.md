@@ -34,16 +34,18 @@ A Python script on your PC cuts every subtitle line into its own clip, analyses 
 | | Feature | What it does |
 |:---:|---|---|
 | 🎧 | **Real clips** | Every sentence plays its own clip from the episode, with replay, 75 % speed and audio-only mode. |
-| ✍️ | **6 drills** | Dictation, fill in the blank, sentence order, listening, grammar and shadowing, plus a mixed mode. |
+| ✍️ | **7 drills** | Dictation, fill in the blank, sentence order, listening, grammar, shadowing and pitch accent, plus a mixed mode. |
+| 👂 | **Minimal-pair listening** | Four versions of the same line that differ by one small sound (っ, long vowels, ゛, ゃゅょ). |
+| 📈 | **Pitch accent** | Hear and choose the high-low pattern of a word, with same-reading words that rise and fall differently. |
 | 🎤 | **Shadowing scores** | Record yourself and get scores for intonation (pitch curve), rhythm and pronunciation. |
 | 🔁 | **Spaced repetition** | Mistakes come back in 10 minutes; correct answers come back later and later, up to 120 days. |
 | 🃏 | **Word cards** | Vocabulary flashcards made from your episodes, each with a real example line and its clip. |
 | 📖 | **Reader** | The whole episode line by line, with translation, speaker and optional furigana. |
 | 📺 | **Watch whole episodes** | Play an episode from start to finish with a live transcript, or full screen with karaoke-style Japanese subtitles. |
-| 📚 | **Dictionary and grammar** | Tap any word for its meaning (JMdict); 560 JLPT grammar patterns from N5 to N1 with examples. |
+| 📚 | **Dictionary and grammar** | Tap any word for its meaning (JMdict, or all your own Yomitan dictionaries in your order); 560 JLPT grammar patterns from N5 to N1 with examples. |
 | 📊 | **Progress** | Daily goal, streaks, a 30-day chart and accuracy for each drill. |
 | 🎁 | **Yearly wrap-up** | Every January, a story-style summary of your year (days, hours, anime, audiobooks, words) that you can save as a PDF. |
-| 🗂️ | **Anki** | Turn any line into an Anki card with its video, via `.apkg` or straight into AnkiDroid. |
+| 🗂️ | **Anki** | Turn any line into an Anki card with its video, pitch accent and definitions, via `.apkg` or straight into AnkiDroid. |
 | 📕 | **Audiobooks** | Japanese audiobooks become the same drills, plus whole-chapter listening with a live transcript, paragraph listening and a reader. |
 | 💾 | **Backup** | Save and restore your progress as a small file. |
 
@@ -80,7 +82,7 @@ flowchart LR
   - [Home screen](#home-screen) · [Episodes and importing](#episodes-and-importing)
   - [Practice drills](#practice-drills-練習): [Mixed](#mixed-practice-ミックス練習) · [Dictation](#dictation-書き取り) · [Fill in the blank](#fill-in-the-blank-穴埋め) · [Order](#sentence-order-並べ替え) · [Listening](#listening-聞き取り) · [Grammar](#grammar-文法) · [Shadowing](#shadowing-シャドーイング) · [Pitch accent](#pitch-accent-アクセント) · [Word cards](#word-cards-単語カード) · [Summary](#round-summary-結果)
   - [Watch whole episodes](#watch-whole-episodes-エピソードを通して見る)
-  - [Learning tools](#learning-tools-学ぶ): [Reader](#reader-読む) · [Furigana](#furigana) · [Word details](#word-details) · [Grammar details](#grammar-details) · [Vocabulary](#vocabulary-単語帳) · [Grammar list](#grammar-list-文法リスト)
+  - [Learning tools](#learning-tools-学ぶ): [Reader](#reader-読む) · [Furigana](#furigana) · [Word details](#word-details) · [Your own dictionaries](#your-own-dictionaries-yomitan) · [Grammar details](#grammar-details) · [Vocabulary](#vocabulary-単語帳) · [Grammar list](#grammar-list-文法リスト)
   - [Progress](#progress-記録) · [Yearly wrap-up](#yearly-wrap-up-年間まとめ) · [Anki](#anki) · [Settings](#settings-設定) · [Light and dark themes](#light-and-dark-themes)
   - [Audiobooks](#audiobooks-オーディオブック): [Audiobook tab](#audiobook-tab) · [Chapter listening](#chapter-listening-章リスニング) · [Paragraph listening](#paragraph-listening-段落リスニング) · [Chapter reader](#chapter-reader-読む)
 - [📱 Install the app on your phone](#-install-the-app-on-your-phone)
@@ -169,7 +171,8 @@ Tap the phrase blocks in the right order. Tap a block in the answer to put it ba
 #### Listening (聞き取り)
 
 <p align="center">
-  <img src="docs/screenshots/07-listening.png" width="260" alt="Listening">
+  <img src="docs/screenshots/07-listening.png" width="260" alt="Listening: four versions of the same line">&nbsp;&nbsp;
+  <img src="docs/screenshots/07b-listening-answer.png" width="260" alt="Listening answer with the changed sound underlined">
 </p>
 
 Choose which of four sentences you heard. All four are **the same sentence with one small sound changed**: a small っ added or dropped (いった / いた), a long vowel stretched or cut (おばさん / おばあさん), a ゛ added or removed (きょう / ぎょう), ゃゅょ made big (びょういん / びよういん) or an ん dropped. The words that change are written in kana in every option, so the spelling gives nothing away, and real words are preferred as traps. After you answer, the sound that differed is underlined in each option. Sentences with no word that can be changed this way fall back to four different sentences of similar length.
@@ -203,9 +206,14 @@ Record yourself repeating the line, either after the clip (クリップのあと
 
 #### Pitch accent (アクセント)
 
+<p align="center">
+  <img src="docs/screenshots/35-accent.png" width="260" alt="Pitch accent question">&nbsp;&nbsp;
+  <img src="docs/screenshots/35b-accent-answer.png" width="260" alt="Pitch accent answer with same-reading words">
+</p>
+
 Listen to a line and choose the **pitch pattern** of the highlighted noun: 平板 (flat), 頭高 (high first), 中高 (drops in the middle) or 尾高 (drops on the particle after it). Each option is drawn as high and low dots over the kana, with a hollow dot for a following が. After you answer you get the correct pattern, what it means, and other words in your episodes with the **same reading but a different accent** (橋 / 箸 / 端), which the drill picks more often.
 
-The accents are the Tokyo-standard ones from UniDic, stored in the pack when it is created, so packs made before this drill existed need to be created again (`--rehacer`). Real speech can differ a little: compound words, sentence intonation and how a character talks all bend the dictionary pattern. The same pitch diagram also appears in [word details](#word-details).
+The accents are the Tokyo-standard ones from UniDic, or from your pitch-accent dictionary if you [add your Yomitan dictionaries](#your-own-dictionaries-yomitan) (which also gives alternative accents, such as 旅 [2] and [1]). They are stored in the pack when it is created, so packs made before this drill existed need to be created again (`--rehacer`). Real speech can differ a little: compound words, sentence intonation and how a character talks all bend the dictionary pattern. The same pitch diagram also appears in [word details](#word-details).
 
 #### Word cards (単語カード)
 
@@ -267,10 +275,37 @@ Optional, and off by default. When turned on in Settings (ふりがなを表示�
 #### Word details
 
 <p align="center">
-  <img src="docs/screenshots/13-word-sheet.png" width="260" alt="Word details">
+  <img src="docs/screenshots/13-word-sheet.png" width="260" alt="Word details with pitch accent and dictionaries">&nbsp;&nbsp;
+  <img src="docs/screenshots/13b-word-sheet-kanji.png" width="260" alt="Word details: more dictionaries and kanji">
 </p>
 
-Tap any word anywhere in the app to see its dictionary form, reading, pitch accent, part of speech, meanings (or [your own Yomitan dictionaries](#use-your-own-yomitan-dictionaries-optional)) (JMdict, in English), how often it appears, and example lines with audio. **覚えた？** marks it as known.
+Tap any word anywhere in the app to see its dictionary form, reading, **pitch accent** (drawn as high and low dots), part of speech, meanings, how often it appears, and example lines with audio. **覚えた？** marks it as known. The meanings come from JMdict (English), or from [your own dictionaries](#your-own-dictionaries-yomitan) when the pack has them.
+
+#### Your own dictionaries (Yomitan)
+
+If you use [Yomitan](https://yomitan.wiki/), the packs can carry the dictionaries you already have there, **in the order you choose**. The screenshots above show a setup with:
+
+1. **ヨガ日本語アクセント辞典**: pitch accent, with alternatives (also used by the pitch-accent drill).
+2. **新明解国語辞典**: definitions in Japanese.
+3. **JMdict**: English meanings with example sentences.
+4. **JMnedict**: readings of names (shown for names only).
+5. **KANJIDIC**: readings and meaning of every kanji in the word (in Spanish here; any language works).
+
+Each dictionary is a section you can fold, and the app remembers the ones you folded. The same dictionaries also appear on the back of [word cards](#word-cards-単語カード), and each word on an [Anki card](#anki) gets its accent, a one-line Japanese definition and the meaning of its kanji.
+
+**You can add more dictionaries.** Any Yomitan dictionary works:
+
+| Kind | Examples | Shown as |
+|---|---|---|
+| Term dictionaries | monolingual (新明解, 大辞泉…), bilingual (JMdict in any language), slang (KireiCake) | a section with the entry |
+| Kanji dictionaries | KANJIDIC in any language | readings, meanings and stroke count for each kanji |
+| Frequency lists | Anime & Jdrama Freq, JPDB | 頻度：rank |
+| Pitch dictionaries | Kanjium, NHK | the accent numbers, also used by the pitch drill |
+
+To add one, install it in Yomitan, export the collection again, run `python yomitan_import.py`, and recreate the packs with `--rehacer`. The order is the `ORDER` list at the top of `yomitan_import.py`, where each entry is part of a dictionary's title; dictionaries that match nothing go last. See [Use your own Yomitan dictionaries](#use-your-own-yomitan-dictionaries-optional) for the step-by-step setup.
+
+> [!IMPORTANT]
+> Many dictionaries are commercial works. They stay on your PC and in your own packs, and they are never uploaded to this repository (`.gitignore` excludes them). Don't share packs made with them.
 
 #### Grammar details
 
@@ -340,7 +375,12 @@ Slides with no data are skipped. The daily record behind it is stored on the pho
   <img src="docs/screenshots/23-settings-ankidroid.png" width="260" alt="Direct AnkiDroid setup">
 </p>
 
-Any line can become an Anki card, with the clip on the front and the sentence, translation, word meanings, grammar and source on the back. There are two ways to get cards into Anki:
+<p align="center">
+  <img src="docs/screenshots/36-anki-card-front.png" width="260" alt="Anki card, front: the clip">&nbsp;&nbsp;
+  <img src="docs/screenshots/36b-anki-card-back.png" width="260" alt="Anki card, back: sentence, translation, words and grammar">
+</p>
+
+Any line can become an Anki card. The **front** is the clip (optionally with the sentence), so you review by ear. The **back** has the sentence, the translation and, for every word, its reading, **pitch accent**, English meaning, a **one-line Japanese definition** and the **meaning of each kanji** (the last three when the pack has [your dictionaries](#your-own-dictionaries-yomitan)), followed by the grammar patterns and where the line comes from. The pictures above show a card in night mode, drawn with the card's own template and style. There are two ways to get cards into Anki:
 
 1. **Export an `.apkg`** from the Anki screen (Anki カード). Choose whether the front shows the video alone or the video plus the sentence, and whether the video plays inside the card (AnkiDroid) or in a separate window (desktop Anki). **＋ まちがえた文をまとめて追加** adds every line you have got wrong in one go.
 2. **Send cards directly to AnkiDroid** when you tap ＋, with no files involved. AnkiDroid then syncs them to AnkiWeb and desktop Anki.

@@ -137,6 +137,28 @@ class Yomi:
                 body = "<hr>".join(glossary_html(g) for _, _, g in ents)
             if body:
                 out.append([self.rank[d], body[:MAX_HTML]])
+        # frequency and pitch dictionaries (Yomitan "termMeta")
+        meta = {}
+        for d, mode, data in self.db.execute("SELECT d, mode, data FROM meta WHERE e = ?", (base,)):
+            data = json.loads(data)
+            r = data.get("reading") if isinstance(data, dict) else None
+            if r and rh and kata2hira(r) != rh:
+                continue
+            if mode == "freq":
+                val = data.get("frequency", data) if isinstance(data, dict) and "reading" in data else data
+                if isinstance(val, dict):
+                    val = val.get("displayValue") or val.get("value")
+                if val is not None:
+                    meta.setdefault(d, []).append(f"{esc(val)}")
+            elif mode == "pitch" and isinstance(data, dict):
+                pos = [p["position"] for p in data.get("pitches", []) if isinstance(p, dict) and isinstance(p.get("position"), int)]
+                accents += pos
+                if pos:
+                    meta.setdefault(d, []).append("・".join(f"[{p}]" for p in pos))
+        for d, vals in meta.items():
+            label = "頻度：" if "freq" in self.dicts[d][0].lower() or "頻度" in self.dicts[d][0] else ""
+            out.append([self.rank[d], label + " / ".join(dict.fromkeys(vals))])
+        out.sort(key=lambda x: x[0])
         return out, list(dict.fromkeys(accents))
 
     def short_ja(self, base, reading):
