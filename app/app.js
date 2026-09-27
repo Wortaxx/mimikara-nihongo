@@ -35,7 +35,7 @@ const dbPut = (store, val, key) => tx(store, 'readwrite', s => { key === undefin
 
 // ================= 状態 =================
 const S = {
-  eps: {}, lines: [], prog: {}, grammar: {}, known: new Set(), days: {}, thumbs: {}, ankiQ: new Set(), ankiDone: new Set(), vprog: {}, kstat: {}, daily: {}, yearly: {},
+  eps: {}, lines: [], prog: {}, grammar: {}, estat: {}, known: new Set(), days: {}, thumbs: {}, ankiQ: new Set(), ankiDone: new Set(), vprog: {}, kstat: {}, daily: {}, yearly: {},
   settings: { video: true, rate: 1, eps: [], lv: [1, 2, 3], short: false, theme: 'auto', roundLen: 10, goal: 20, glv: ['N5', 'N4', 'N3', 'N2', 'N1'], furi: false },
 };
 const $ = (sel, el = document) => el.querySelector(sel);
@@ -106,11 +106,11 @@ async function loadAll() {
   const st = await dbGet('kv', 'settings'); if (st) Object.assign(S.settings, st);
   S.settings.eps = (S.settings.eps || []).filter(e => S.eps[e]);
   if (!Array.isArray(S.settings.glv) || !S.settings.glv.length) S.settings.glv = LEVELS.slice();
-  const [known, days, thumbs, ankiq, ankidone, vprog, kstat, daily, yearly] = await Promise.all(
-    ['known', 'days', 'thumbs', 'ankiq', 'ankidone', 'vprog', 'kstat', 'daily', 'yearly'].map(k => dbGet('kv', k)));
+  const [known, days, thumbs, ankiq, ankidone, vprog, kstat, daily, yearly, estat] = await Promise.all(
+    ['known', 'days', 'thumbs', 'ankiq', 'ankidone', 'vprog', 'kstat', 'daily', 'yearly', 'estat'].map(k => dbGet('kv', k)));
   S.known = new Set(known || []); S.days = days || {}; S.thumbs = thumbs || {};
   S.ankiQ = new Set(ankiq || []); S.ankiDone = new Set(ankidone || []);
-  S.vprog = vprog || {}; S.kstat = kstat || {}; S.daily = daily || {}; S.yearly = yearly || {};
+  S.vprog = vprog || {}; S.kstat = kstat || {}; S.daily = daily || {}; S.yearly = yearly || {}; S.estat = estat || {};
   READMAP = null; ELIG_CACHE.clear(); POS_INDEX.clear(); // データが変わったので作り直す（必要になったときに）
   applyTheme();
 }
@@ -259,6 +259,13 @@ function countPractice(kind, ok, line) {
   const k = S.kstat[kind] || (S.kstat[kind] = { ok: 0, mid: 0, bad: 0 });
   k[ok === true ? 'ok' : ok === false ? 'bad' : 'mid']++; dbPut('kv', S.kstat, 'kstat');
 }
+// 何を聞き分けられて、何をまちがえるか：snd＝音の種類、pitch＝アクセントの型（ほかの分類もここに足す）
+function logE(cat, key, ok) {
+  const c = S.estat[cat] || (S.estat[cat] = {}), e = c[key] || (c[key] = { ok: 0, bad: 0 });
+  e[ok ? 'ok' : 'bad']++; e.last = Date.now();
+  dbPut('kv', S.estat, 'estat');
+}
+const SND_NAME = { sokuon: 'っ（促音）', long: 'のばす音（長音）', dakuten: '゛（濁音）', yoon: 'ゃゅょ（拗音）', n: 'ん（撥音）' };
 function streak() {
   let n = 0; const d = new Date();
   if (!S.days[today()]) d.setDate(d.getDate() - 1);
@@ -810,7 +817,7 @@ function viewSettings() {
 }
 
 // ================= アプリの更新 =================
-const APP_VERSION = 19; // sw.js の CACHE（animejp-v19）と同じ番号にする
+const APP_VERSION = 20; // sw.js の CACHE（animejp-v20）と同じ番号にする
 async function latestVersion() {
   const txt = await fetch('sw.js?nc=' + Date.now(), { cache: 'no-store' }).then(r => r.text());
   const m = txt.match(/animejp-v(\d+)/); return m ? +m[1] : 0;
@@ -835,7 +842,7 @@ function updateCard() {
 }
 
 // ================= バックアップ（記録だけ。クリップは .zip から読み込み直す） =================
-const BACKUP_KV = ['settings', 'known', 'days', 'ankiq', 'ankidone', 'vprog', 'kstat', 'daily', 'yearly'];
+const BACKUP_KV = ['settings', 'known', 'days', 'ankiq', 'ankidone', 'vprog', 'kstat', 'daily', 'yearly', 'estat'];
 async function saveFile(blob, fname) { // スマホでは共有メニュー、だめならダウンロード
   try {
     const file = new File([blob], fname, { type: blob.type || 'application/octet-stream' });
@@ -980,24 +987,24 @@ const moraeOf = k => k.match(/[ぁ-ゖ][ゃゅょぁぃぅぇぉ]?|./g) || [];
 const vowelOf = m => { const c = m[m.length - 1]; return Object.keys(KANA_V).find(v => KANA_V[v].includes(c)) || ''; };
 const hiraToKata = s => s.replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60));
 function soundAlikes(k, kata) {
-  const m = moraeOf(k), out = new Set();
-  const put = (i, n, ...ins) => out.add([...m.slice(0, i), ...ins, ...m.slice(i + n)].join(''));
+  const m = moraeOf(k), out = new Map();   // 変えた読み → 音の種類
+  const put = (type, i, n, ...ins) => { const v = [...m.slice(0, i), ...ins, ...m.slice(i + n)].join(''); if (!out.has(v)) out.set(v, type); };
   m.forEach((x, i) => {
     const v = vowelOf(x), nx = m[i + 1];
-    if (x === 'っ') put(i, 1);
-    else if (i > 0 && 'かきくけこさしすせそたちつてとぱぴぷぺぽ'.includes(x[0]) && !'っんー'.includes(m[i - 1])) put(i, 0, 'っ');
+    if (x === 'っ') put('sokuon', i, 1);
+    else if (i > 0 && 'かきくけこさしすせそたちつてとぱぴぷぺぽ'.includes(x[0]) && !'っんー'.includes(m[i - 1])) put('sokuon', i, 0, 'っ');
     if (v && x !== 'っ') {
-      if (nx === 'ー' || nx === LONG_OF[v] || nx === LONG_ALT[v]) put(i + 1, 1);
+      if (nx === 'ー' || nx === LONG_OF[v] || nx === LONG_ALT[v]) put('long', i + 1, 1);
       // のばす音を足すのは、語の途中で、っ・ん の前でなく、すでにのばした音でもないとき
-      else if (x !== 'ん' && nx && !'っんー'.includes(nx) && !(i > 0 && (x === LONG_OF[vowelOf(m[i - 1])] || x === LONG_ALT[vowelOf(m[i - 1])]))) put(i + 1, 0, kata ? 'ー' : LONG_OF[v]);
+      else if (x !== 'ん' && nx && !'っんー'.includes(nx) && !(i > 0 && (x === LONG_OF[vowelOf(m[i - 1])] || x === LONG_ALT[vowelOf(m[i - 1])]))) put('long', i + 1, 0, kata ? 'ー' : LONG_OF[v]);
     }
-    if (DAK[x[0]] && m[i - 1] !== 'っ') put(i, 1, DAK[x[0]] + x.slice(1));
-    if (x.length === 2 && SMALL_Y[x[1]]) put(i, 1, x[0], SMALL_Y[x[1]]);
-    else if (nx && 'やゆよ'.includes(nx) && 'きしちにひみりぎじびぴ'.includes(x)) put(i, 2, x + SMALL_Y[nx]);
-    if (x === 'ん' && m.length > 2) put(i, 1);
+    if (DAK[x[0]] && m[i - 1] !== 'っ') put('dakuten', i, 1, DAK[x[0]] + x.slice(1));
+    if (x.length === 2 && SMALL_Y[x[1]]) put('yoon', i, 1, x[0], SMALL_Y[x[1]]);
+    else if (nx && 'やゆよ'.includes(nx) && 'きしちにひみりぎじびぴ'.includes(x)) put('yoon', i, 2, x + SMALL_Y[nx]);
+    if (x === 'ん' && m.length > 2) put('n', i, 1);
   });
   out.delete(k);
-  return [...out].filter(s => s && !/^[っんー]/.test(s));
+  return [...out].filter(([s]) => s && !/^[っんー]/.test(s));   // [読み, 音の種類]
 }
 // 本当にある言葉の読み（まちがいの選択肢に、実在する言葉を優先して使う）
 const REAL_KANA = new Map();
@@ -1009,13 +1016,13 @@ function realKana() {
 function soundOptions(l) {
   const real = realKana();
   const cands = shuffle(l.tk.map((t, i) => ({ t, i })).filter(({ t }) => CONTENT_P.includes(t.p) && t.r && moraeOf(t.r).length >= 2))
-    .map(c => { const kata = /^[ァ-ヶー]+$/.test(c.t.s); return { ...c, kata, vs: shuffle(soundAlikes(c.t.r, kata)).sort((a, b) => real.has(b) - real.has(a)) }; })
+    .map(c => { const kata = /^[ァ-ヶー]+$/.test(c.t.s); return { ...c, kata, vs: shuffle(soundAlikes(c.t.r, kata)).sort((a, b) => real.has(b[0]) - real.has(a[0])) }; })
     .filter(c => c.vs.length);
   if (!cands.length) return null;
   const used = cands.slice(0, cands.length >= 3 ? 2 : 1), alts = [];
   for (let k = 0; alts.length < 3 && k < 12; k++) {
     const c = used[k % used.length], v = c.vs.shift();
-    if (v) alts.push({ i: c.i, k: c.kata ? hiraToKata(v) : v });
+    if (v) alts.push({ i: c.i, k: c.kata ? hiraToKata(v[0]) : v[0], type: v[1] });
   }
   if (alts.length < 3) return null;
   return { changed: new Set(used.map(c => c.i)), kata: Object.fromEntries(used.map(c => [c.i, c.kata])), alts };
@@ -1119,7 +1126,8 @@ const EX = {
       box.classList.add('done'); box.querySelectorAll('.opt').forEach(x => x.disabled = true);
       e.currentTarget.classList.add(ok ? 'right' : 'wrong'); box.children[opts.indexOf(null)].classList.add('right');
       finish(l, 'oido', ok);
-      w.append(verdict(ok ? 'ok' : 'bad', ok ? '正解！' : '正解は緑の文です。赤い所の音がちがいます', box), resultBlock(l)); nextBar(w);
+      if (ok) new Set(so.alts.map(a => a.type)).forEach(t => logE('snd', t, true)); else logE('snd', o.type, false);
+      w.append(verdict(ok ? 'ok' : 'bad', ok ? '正解！' : `正解は緑の文です。赤い所の音がちがいます：${SND_NAME[o.type]}`, box), resultBlock(l)); nextBar(w);
     } }, optEl(o))));
     w.append(box);
     setBar(w, h('button', { class: 'btn ghost', onclick: () => [...box.children].find((b, k) => opts[k] !== null)?.click() }, 'わからない'));
@@ -1198,7 +1206,7 @@ const EX = {
       const ok = o === a;
       box.classList.add('done'); box.querySelectorAll('.opt').forEach((b, k) => { b.disabled = true; if (opts[k] === a) b.classList.add('right'); });
       if (!ok) e.currentTarget.classList.add('wrong');
-      finish(l, 'accent', ok);
+      finish(l, 'accent', ok); logE('pitch', name, ok);
       w.append(verdict(ok ? 'ok' : 'bad', ok ? `正解！ ${name}` : `正解は「${name}」`, box));
       const others = homophones(t.r).filter(x => x.b !== t.b);
       w.append(h('div', { class: 'card' },
@@ -1604,6 +1612,17 @@ function viewStats() {
     weakest ? h('div', { class: 'small', style: 'margin:-4px 0 12px' }, `いちばん苦手：`, h('b', {}, names[weakest[0]])) : null,
     rows,
     h('p', { class: 'small muted', style: 'margin:12px 0 0' }, '正解率は、この画面ができた日からの記録です。書き取りの「おしい」（60〜89%）は正解に入りません。')));
+  // 聞き分け：音の種類ごと・アクセントの型ごとの正解率
+  const eRows = (cat, names) => Object.entries(names).map(([k, label]) => {
+    const e = (S.estat[cat] || {})[k] || { ok: 0, bad: 0 }, n = e.ok + e.bad, pct = n ? Math.round(100 * e.ok / n) : 0;
+    return h('div', { class: 'krow' }, h('span', { class: 'kn' }, label), h('div', { class: 'kbar' }, h('i', { style: `width:${pct}%` })),
+      h('span', { class: 'kv' }, n ? `${pct}%` : '―', h('small', {}, n ? ` ${e.ok}/${n}` : '')));
+  });
+  if (S.estat.snd || S.estat.pitch) w.append(h('div', { class: 'card' },
+    h('h2', {}, '聞き分け'),
+    h('p', { class: 'small muted', style: 'margin:-4px 0 10px' }, '「聞き取り」でどの音をまちがえたか、「アクセント」でどの型をまちがえたか。'),
+    S.estat.snd ? h('div', { class: 'kacc' }, eRows('snd', SND_NAME)) : null,
+    S.estat.pitch ? h('div', { class: 'kacc', style: 'margin-top:12px' }, eRows('pitch', { 平板: '平板', 頭高: '頭高', 中高: '中高', 尾高: '尾高' })) : null));
   const ys = wrapYears(), cy = String(new Date().getFullYear());
   w.append(h('div', { class: 'card' }, h('h2', {}, '年間まとめ'),
     h('p', { class: 'small muted', style: 'margin:-4px 0 12px' }, '1年間の練習をスライドでふり返って、PDFで保存できます。毎年1月1日にホームにお知らせが出ます。'),

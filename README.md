@@ -343,6 +343,7 @@ Open it by tapping the progress card on the home screen (記録を見る).
 - **Totals:** questions answered, days practised, current streak, best streak, known words and words seen in word cards.
 - **Last 30 days:** one bar per day with your daily goal as a dashed line. Bars that reach the goal are highlighted, and tapping a bar shows that day's count.
 - **Accuracy by drill,** with your weakest drill called out.
+- **Hearing the difference (聞き分け):** your accuracy for each kind of sound in the [listening](#listening-聞き取り) drill (っ, long vowels, ゛, ゃゅょ, ん) and for each pattern in the [pitch accent](#pitch-accent-アクセント) drill (平板, 頭高, 中高, 尾高). When you pick a wrong option, the listening drill also tells you which kind of sound it was.
 
 ### Yearly wrap-up (年間まとめ)
 
