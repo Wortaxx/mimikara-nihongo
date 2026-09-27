@@ -36,7 +36,7 @@ const dbPut = (store, val, key) => tx(store, 'readwrite', s => { key === undefin
 // ================= 状態 =================
 const S = {
   eps: {}, lines: [], prog: {}, grammar: {}, estat: {}, known: new Set(), days: {}, thumbs: {}, ankiQ: new Set(), ankiDone: new Set(), vprog: {}, kstat: {}, daily: {}, yearly: {},
-  settings: { video: true, rate: 1, eps: [], lv: [1, 2, 3], short: false, theme: 'auto', roundLen: 10, goal: 20, glv: ['N5', 'N4', 'N3', 'N2', 'N1'], furi: false },
+  settings: { subSize: 'm', video: true, rate: 1, eps: [], lv: [1, 2, 3], short: false, theme: 'auto', roundLen: 10, goal: 20, glv: ['N5', 'N4', 'N3', 'N2', 'N1'], furi: false },
 };
 const $ = (sel, el = document) => el.querySelector(sel);
 const h = (tag, attrs = {}, ...kids) => {
@@ -120,6 +120,7 @@ const saveSettings = () => dbPut('kv', S.settings, 'settings');
 const saveKnown = () => dbPut('kv', [...S.known], 'known');
 function applyTheme() {
   const t = S.settings.theme; if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t);
+  document.documentElement.dataset.sub = S.settings.subSize || 'm';
   // la barra de estado del móvil usa el mismo color que el fondo de la app
   const dark = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
   document.querySelectorAll('meta[name=theme-color]').forEach(m => { m.removeAttribute('media'); m.content = dark ? '#131619' : '#f5f3ee'; });
@@ -924,6 +925,7 @@ function viewSettings() {
     setRow(ICON.gram, '文法クイズのレベル', '文法の練習で出す JLPT のレベル', glvChips(), true)));
   w.append(h('div', { class: 'card' }, cardHead(ICON.eye, '表示', 2),
     setRow(ICON.ruby, 'ふりがなを表示する', '漢字の上に読みを出す', toggle('furi')),
+    setRow(ICON.eye, '全画面の字幕の大きさ', 'エピソードを全画面で見るときの字幕', sel('subSize', [['s', '小'], ['m', '中'], ['l', '大']], () => document.documentElement.dataset.sub = S.settings.subSize)),
     setRow(ICON.moon, 'テーマ', '自動はスマホの設定に合わせます', sel('theme', [['auto', '自動'], ['light', 'ライト'], ['dark', 'ダーク']], applyTheme))));
   w.append(ankiLiveCard());
   const list = h('div', { class: 'eplist' });
@@ -952,7 +954,7 @@ function viewSettings() {
 }
 
 // ================= アプリの更新 =================
-const APP_VERSION = 24; // sw.js の CACHE（animejp-v24）と同じ番号にする
+const APP_VERSION = 25; // sw.js の CACHE（animejp-v25）と同じ番号にする
 async function latestVersion() {
   const txt = await fetch('sw.js?nc=' + Date.now(), { cache: 'no-store' }).then(r => r.text());
   const m = txt.match(/animejp-v(\d+)/); return m ? +m[1] : 0;

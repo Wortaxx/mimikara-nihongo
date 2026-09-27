@@ -464,6 +464,7 @@ Open it with the ⚙ button on the home screen. Settings are grouped into cards,
 | | とても短い文もふくめる | Include very short lines such as ハァ… or ん？. |
 | | 文法クイズのレベル | JLPT levels used in the grammar drill. |
 | **表示** (display) | ふりがなを表示する | Show furigana. |
+| | 全画面の字幕の大きさ | Size of the Japanese subtitles when watching an episode full screen: 小 (small), 中 (medium, the default) or 大 (large). |
 | | テーマ | Theme: auto (follows the phone), light or dark. |
 | **AnkiDroid に直接追加** | すぐ AnkiDroid に入れる | Send cards straight to AnkiDroid when you tap ＋. See [Set up Anki](#6-set-up-anki). |
 | **ライブラリ** (library) | | Your imported episodes and chapters, and how much storage the app is using. The 🗑 button deletes one; **＋ アニメ（.zip）** and **＋ 本の章（.zip）** import more. |

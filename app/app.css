@@ -354,14 +354,14 @@ select{-webkit-appearance:none;appearance:none;padding-right:34px;background-ima
 .lv-stage:fullscreen .lv-fs,.lv-stage.fs .lv-fs{display:none}
 .lv-stage:fullscreen .lv-exit,.lv-stage.fs .lv-exit{display:flex}
 .lv-stage:fullscreen .lv-sub,.lv-stage.fs .lv-sub{display:block;position:absolute;left:5%;right:5%;bottom:5%;text-align:center;pointer-events:none}
-.lv-sub .sentence{font-size:clamp(20px,3.6vw,46px);line-height:1.5;font-weight:700;text-shadow:0 0 4px #000,0 2px 8px #000,0 0 2px #000}
+.lv-sub .sentence{font-size:calc(var(--subk,1) * clamp(16px,2.7vw,34px));line-height:1.5;font-weight:700;text-shadow:0 0 4px #000,0 2px 8px #000,0 0 2px #000}
 .lv-sub .sentence .w{color:rgba(255,255,255,.8);cursor:pointer;pointer-events:auto}
 .lv-sub{transition:opacity .25s}
 .lv-sub.idle{opacity:0}
 .lv-sub.idle .w{pointer-events:none}
 .lv-sub .sentence .w.said{color:#ffe27a}
 .lv-sub .sentence .w:hover{background:none}
-.lv-sub-tr{font-size:clamp(14px,2vw,24px);color:#fff;opacity:.9;margin-top:4px;text-shadow:0 0 4px #000,0 2px 6px #000}
+.lv-sub-tr{font-size:calc(var(--subk,1) * clamp(13px,1.7vw,20px));color:#fff;opacity:.9;margin-top:4px;text-shadow:0 0 4px #000,0 2px 6px #000}
 .lv-stage .lv-hint.show{display:block;position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);background:rgba(0,0,0,.65);color:#fff;padding:10px 18px;border-radius:12px;font-size:15px;white-space:nowrap;pointer-events:none}
 .lv-spk{font-size:12px;color:var(--muted);margin-bottom:1px}
 .lv-tr{font-size:14px;color:var(--muted);margin-top:3px;line-height:1.5}
@@ -448,3 +448,5 @@ select{-webkit-appearance:none;appearance:none;padding-right:34px;background-ima
 .numwrap{display:inline-flex;align-items:center;gap:6px}
 .numin{width:5.5em;font-size:16px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--text);text-align:right;font-variant-numeric:tabular-nums}
 .numin:focus{outline:2px solid var(--accent);outline-offset:0}
+/* 全画面の字幕の大きさ（設定） */
+:root[data-sub="s"]{--subk:.8} :root[data-sub="m"]{--subk:1} :root[data-sub="l"]{--subk:1.3}
