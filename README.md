@@ -33,7 +33,7 @@ A Python script on your PC cuts every subtitle line into its own clip, analyses 
 
 | | Feature | What it does |
 |:---:|---|---|
-| 🎧 | **Real clips** | Every sentence plays its own clip from the episode, with replay, 75 % speed and audio-only mode. |
+| 🎧 | **Real clips** | Every sentence plays its own clip from the episode, with replay, speeds from 0.5× to 1.25× (or automatic) and audio-only mode. |
 | ✍️ | **7 drills** | Dictation, fill in the blank, sentence order, listening, grammar, shadowing and pitch accent, plus a mixed mode. |
 | 👂 | **Minimal-pair listening** | Four versions of the same line that differ by one small sound (っ, long vowels, ゛, ゃゅょ). |
 | 📈 | **Pitch accent** | Hear and choose the high-low pattern of a word, with same-reading words that rise and fall differently. |
@@ -130,7 +130,7 @@ flowchart LR
 
 ### Practice drills (練習)
 
-Every drill plays the real clip of the line. You can replay it (もう一度), slow it down to 75 % (ゆっくり), or hide the video and keep only the audio (映像). Each round has 5, 10 or 20 questions.
+Every drill plays the real clip of the line. You can replay it (もう一度), change the speed (the button with the current speed, such as **1×**: 0.5×, 0.65×, 0.75×, 0.85×, 1×, 1.1× or 1.25×), or hide the video and keep only the audio (映像). **自動** (automatic) picks the speed from your progress on each line: 0.75× for lines you can't catch yet, 0.85× once you have got them right, and full speed once you know them well, so each line speeds up as you learn it. Each round has 5, 10 or 20 questions.
 
 After each answer the full line is shown, with the speaker, the translation, the grammar patterns and their JLPT level. Tap any word to see its meaning, and any grammar chip for an explanation.
 
@@ -247,7 +247,7 @@ The wide **エピソードを通して見る** button on the アニメ tab plays
 - **Video controls, like YouTube:** tap the video once to show the controls (play/pause and a **progress bar you can drag** to any point). **Double-tap the right side to jump forward 10 seconds and the left side to go back 10 seconds** (with dialogue-only packs, to the next or previous line); double-tap the middle to pause or resume.
 - **Full screen** (the ⛶ button on the video): the video turns landscape, with the current line as a **karaoke-style Japanese subtitle** that colours in as it is spoken, plus the translation if it is on. When the original subtitles put a line at the **top of the screen** (to leave room for on-screen text), it is shown at the top here too. **＋ Anki** in the corner saves the line being spoken, and ✕ goes back.
 - **Tap any word** (in the subtitle or the transcript) to pause and open its dictionary entry, with **この文を Anki に追加** to send that line to Anki. Example lines play without the episode talking over them.
-- ⏮ ⏯ ⏭, **ゆっくり**, the time bar and **＋ Anki** work as in [chapter listening](#chapter-listening-章リスニング). It remembers where you stopped and moves on to the next episode at the end.
+- ⏮ ⏯ ⏭, the speed button, the time bar and **＋ Anki** work as in [chapter listening](#chapter-listening-章リスニング). It remembers where you stopped and moves on to the next episode at the end.
 
 **Whole episode or dialogue only.** If the pack was made with **`--completo`** (see [Create episode packs](#2-create-episode-packs-zip)), it contains the full episode as one video and the app plays it **from start to finish without cuts** (opening, music and action scenes included); the subtitle simply disappears while nobody is speaking. Packs made without it only have the clips, so the app plays the lines of dialogue one after another and skips everything in between. The screen tells you which of the two you are watching.
 
@@ -437,7 +437,7 @@ Listen to the **whole chapter** while the transcript follows along, like live su
 
 - **⏮ ⏯ ⏭** go to the previous sentence, pause or resume, and go to the next sentence. Tap any sentence to jump to it, or the time bar to jump to that point of the chapter.
 - **＋ Anki** in the top-right corner always adds the sentence being read; the small ＋ next to each sentence adds that one.
-- Tap any word for its meaning. **ゆっくり** slows the audio down.
+- Tap any word for its meaning. The speed button slows the audio down or speeds it up.
 - It remembers where you stopped in each chapter, and at the end of a chapter it moves on to the next one if you have imported it.
 
 #### Paragraph listening (段落リスニング)
@@ -455,7 +455,7 @@ Open it with **練習** next to any paragraph in the chapter reader. Listen to t
   <img src="docs/screenshots/28-book-reader.png" width="260" alt="Audiobook chapter reader">
 </p>
 
-The whole chapter, grouped by paragraph. **最初から聞く** plays the chapter from start to finish, sentence by sentence: the current sentence is highlighted and the page scrolls along with it. Tap any sentence to continue from there, step back or forward one sentence with ⏮ ⏭, listen to a single paragraph (聞く) or practise it (練習). **文字をかくす** hides the text so you can listen first, and **ゆっくり** slows the audio down.
+The whole chapter, grouped by paragraph. **最初から聞く** plays the chapter from start to finish, sentence by sentence: the current sentence is highlighted and the page scrolls along with it. Tap any sentence to continue from there, step back or forward one sentence with ⏮ ⏭, listen to a single paragraph (聞く) or practise it (練習). **文字をかくす** hides the text so you can listen first, and The speed button slows the audio down or speeds it up.
 
 ---
 
