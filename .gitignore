@@ -11,3 +11,4 @@ script/jmdict_min.db
 # Your own Yomitan dictionaries (commercial dictionaries must never be published)
 script/yomitan-dictionaries-*.json
 script/dicts.sqlite
+script/COMANDOS.txt
