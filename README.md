@@ -34,7 +34,9 @@ A Python script on your PC cuts every subtitle line into its own clip, analyses 
 | | Feature | What it does |
 |:---:|---|---|
 | 🎧 | **Real clips** | Every sentence plays its own clip from the episode, with replay, speeds from 0.5× to 1.25× (or automatic) and audio-only mode. |
-| ✍️ | **7 drills** | Dictation, fill in the blank, sentence order, listening, grammar, shadowing and pitch accent, plus a mixed mode. |
+| ✍️ | **8 drills** | Dictation, fill in the blank, sentence order, listening, grammar, shadowing, pitch accent and kanji, plus a mixed mode and a step-by-step mode for hard lines. |
+| 🎯 | **Today's weak points** | Finds the sounds, pitch patterns, grammar, words and lines you get wrong, and builds a round from them. |
+| 🔍 | **Search** | Words, lines (Japanese, reading or translation), grammar and kanji across all your episodes. |
 | 👂 | **Minimal-pair listening** | Four versions of the same line that differ by one small sound (っ, long vowels, ゛, ゃゅょ). |
 | 📈 | **Pitch accent** | Hear and choose the high-low pattern of a word, with same-reading words that rise and fall differently. |
 | 🎤 | **Shadowing scores** | Record yourself and get scores for intonation (pitch curve), rhythm and pronunciation. |
@@ -43,7 +45,7 @@ A Python script on your PC cuts every subtitle line into its own clip, analyses 
 | 📖 | **Reader** | The whole episode line by line, with translation, speaker and optional furigana. |
 | 📺 | **Watch whole episodes** | Play an episode from start to finish with a live transcript, or full screen with karaoke-style Japanese subtitles. |
 | 📚 | **Dictionary and grammar** | Tap any word for its meaning (JMdict, or all your own Yomitan dictionaries in your order); 560 JLPT grammar patterns from N5 to N1 with examples. |
-| 📊 | **Progress** | Daily goal, streaks, a 30-day chart and accuracy for each drill. |
+| 📊 | **Progress** | Daily goal, streaks, a 30-day chart, a skills profile, accuracy for each drill and for each kind of sound. |
 | 🎁 | **Yearly wrap-up** | Every January, a story-style summary of your year (days, hours, anime, audiobooks, words) that you can save as a PDF. |
 | 🗂️ | **Anki** | Turn any line into an Anki card with its video, pitch accent and definitions, via `.apkg` or straight into AnkiDroid. |
 | 📕 | **Audiobooks** | Japanese audiobooks become the same drills, plus whole-chapter listening with a live transcript, paragraph listening and a reader. |
@@ -80,9 +82,9 @@ flowchart LR
 - [🧠 How it works](#-how-it-works)
 - [✨ Features](#-features)
   - [Home screen](#home-screen) · [Episodes and importing](#episodes-and-importing)
-  - [Practice drills](#practice-drills-練習): [Mixed](#mixed-practice-ミックス練習) · [Dictation](#dictation-書き取り) · [Fill in the blank](#fill-in-the-blank-穴埋め) · [Order](#sentence-order-並べ替え) · [Listening](#listening-聞き取り) · [Grammar](#grammar-文法) · [Shadowing](#shadowing-シャドーイング) · [Pitch accent](#pitch-accent-アクセント) · [Word cards](#word-cards-単語カード) · [Summary](#round-summary-結果)
+  - [Practice drills](#practice-drills-練習): [Mixed](#mixed-practice-ミックス練習) · [Dictation](#dictation-書き取り) · [Fill in the blank](#fill-in-the-blank-穴埋め) · [Order](#sentence-order-並べ替え) · [Listening](#listening-聞き取り) · [Grammar](#grammar-文法) · [Shadowing](#shadowing-シャドーイング) · [Pitch accent](#pitch-accent-アクセント) · [Kanji](#kanji-漢字) · [Step by step](#step-by-step-じっくり聞く) · [Weak points](#todays-weak-points-今日の弱点) · [Word cards](#word-cards-単語カード) · [Summary](#round-summary-結果)
   - [Watch whole episodes](#watch-whole-episodes-エピソードを通して見る)
-  - [Learning tools](#learning-tools-学ぶ): [Reader](#reader-読む) · [Furigana](#furigana) · [Word details](#word-details) · [Your own dictionaries](#your-own-dictionaries-yomitan) · [Grammar details](#grammar-details) · [Vocabulary](#vocabulary-単語帳) · [Grammar list](#grammar-list-文法リスト)
+  - [Learning tools](#learning-tools-学ぶ): [Reader](#reader-読む) · [Furigana](#furigana) · [Word details](#word-details) · [Your own dictionaries](#your-own-dictionaries-yomitan) · [Search](#search-検索) · [Kanji sheet](#kanji-sheet) · [Grammar details](#grammar-details) · [Vocabulary](#vocabulary-単語帳) · [Grammar list](#grammar-list-文法リスト)
   - [Progress](#progress-記録) · [Yearly wrap-up](#yearly-wrap-up-年間まとめ) · [Anki](#anki) · [Settings](#settings-設定) · [Light and dark themes](#light-and-dark-themes)
   - [Audiobooks](#audiobooks-オーディオブック): [Audiobook tab](#audiobook-tab) · [Chapter listening](#chapter-listening-章リスニング) · [Paragraph listening](#paragraph-listening-段落リスニング) · [Chapter reader](#chapter-reader-読む)
 - [📱 Install the app on your phone](#-install-the-app-on-your-phone)
@@ -116,7 +118,8 @@ flowchart LR
 - **Anime / Audiobook tabs** (アニメ / オーディオブック). Each tab has its own episodes, drills and stats.
 - **Today's progress.** A ring shows today's answers against your daily goal, next to the number of sentences practised, your accuracy, the sentences due for review and your day streak (日連続). Tap the card to open the [progress screen](#progress-記録).
 - **Difficulty filter** (むずかしさ: easy / normal / hard). The script gives each sentence a difficulty level. The number on the right is how many sentences match your filters.
-- **Practice** (練習) and **Learn** (学ぶ) open the drills and tools described below.
+- **Today's weak points** (今日の弱点). Once the app has seen you make mistakes, a card lists what you get wrong most (a kind of sound, a pitch pattern, grammar patterns, words and lines), and **弱点を練習する** starts a round built from exactly those. See [Today's weak points](#todays-weak-points-今日の弱点).
+- **Search** (🔍, top right) and **Practice** (練習) and **Learn** (学ぶ), described below.
 
 ### Episodes and importing
 
@@ -215,6 +218,42 @@ Listen to a line and choose the **pitch pattern** of the highlighted noun: 平�
 
 The accents are the Tokyo-standard ones from UniDic, or from your pitch-accent dictionary if you [add your Yomitan dictionaries](#your-own-dictionaries-yomitan) (which also gives alternative accents, such as 旅 [2] and [1]). They are stored in the pack when it is created, so packs made before this drill existed need to be created again (`--rehacer`). Real speech can differ a little: compound words, sentence intonation and how a character talks all bend the dictionary pattern. The same pitch diagram also appears in [word details](#word-details).
 
+#### Kanji (漢字)
+
+<p align="center">
+  <img src="docs/screenshots/37-kanji-drill.png" width="260" alt="Kanji drill: write the word in kanji">&nbsp;&nbsp;
+  <img src="docs/screenshots/37b-kanji-answer.png" width="260" alt="Kanji drill answer with the word's kanji">
+</p>
+
+Kanji practised through words you actually heard, never in isolation. Each question takes a word from the line and asks either for its **reading** (「勇者」の読み方は？) or for the **word in kanji** from its reading (「ゆうしゃ」を漢字で書くと？, with the word blanked out of the sentence). The wrong options are chosen to be tricky: words that share a kanji (賢者, 勇気), readings that differ by one small sound (ゆしゃ, ゆうっしゃ), and homophones. After you answer, the word's meaning, its Japanese definition and its kanji appear; tap a kanji to open its [kanji sheet](#kanji-sheet).
+
+#### Step by step (じっくり聞く)
+
+<p align="center">
+  <img src="docs/screenshots/41-deep.png" width="260" alt="Step-by-step listening">
+</p>
+
+For lines you just can't understand. One line, six steps:
+
+1. **聞く**: listen with no text, as many times as you like.
+2. **書く**: write what you caught (a little, in kana, or nothing at all). It is checked like [dictation](#dictation-書き取り).
+3. **ゆっくり**: listen at 0.75× while reading the line with furigana, with the translation one tap away.
+4. **言葉**: the words (reading, pitch pattern, meaning) and grammar of the line, each one tappable.
+5. **まねる**: [shadow](#shadowing-シャドーイング) it.
+6. **もう一度**: listen again at full speed with no text, and say how much you understood (ぜんぶ / だいたい / まだ).
+
+**じっくり聞く** on the home screen runs 3 lines, favouring the ones you fail. You can also open it for any line with the **じっくり聞く** button under its result.
+
+#### Today's weak points (今日の弱点)
+
+The drills record what you get wrong: which **kind of sound** in [listening](#listening-聞き取り), which **pitch pattern**, which **grammar patterns**, which **words** (in dictation, fill in the blank, kanji and word cards) and which **lines**. The 今日の弱点 card on the home screen shows the worst of them, and **弱点を練習する** builds a round of up to 13 questions aimed at them:
+
+- fill in the blank or kanji questions on your weak words,
+- grammar questions on your weak patterns,
+- listening questions that change **your weakest kind of sound** (for example, more っ if you miss those),
+- pitch questions on your weakest pattern,
+- shadowing and dictation of the lines you keep failing.
+
 #### Word cards (単語カード)
 
 <p align="center">
@@ -307,6 +346,22 @@ To add one, install it in Yomitan, export the collection again, run `python yomi
 > [!IMPORTANT]
 > Many dictionaries are commercial works. They stay on your PC and in your own packs, and they are never uploaded to this repository (`.gitignore` excludes them). Don't share packs made with them.
 
+#### Search (検索)
+
+<p align="center">
+  <img src="docs/screenshots/38-search.png" width="260" alt="Search results">
+</p>
+
+The 🔍 button on the home screen searches everything you have imported: **words** (by spelling, reading or meaning), **lines** (in Japanese, by their kana reading, or by their translation, so 「magia」 finds the lines about magic), **grammar** patterns and **kanji**. When you type a whole word you also get a summary: how many times it appears, in how many episodes, and how many of its lines you already know, are practising or have due for review. Every line can be played right there.
+
+#### Kanji sheet
+
+<p align="center">
+  <img src="docs/screenshots/39-kanji-sheet.png" width="260" alt="Kanji sheet with the words that use it">
+</p>
+
+Tap a kanji under a word in [word details](#word-details), in search or after a kanji question. You get its readings and meaning (from KANJIDIC, if the pack has [your dictionaries](#your-own-dictionaries-yomitan)) and **every word from your own episodes that uses it**, most frequent first, with the ones you know ticked. Tap a word to open it, then one of its kanji, and so on: your vocabulary becomes a web of words linked by their kanji instead of a list.
+
 #### Grammar details
 
 <p align="center">
@@ -338,10 +393,17 @@ Every word from your episodes, most frequent first, filtered by episode and by *
   <img src="docs/screenshots/20-stats-accuracy.png" width="260" alt="Accuracy by drill">
 </p>
 
+<p align="center">
+  <img src="docs/screenshots/42-skills.png" width="260" alt="Skills profile and word stages">&nbsp;&nbsp;
+  <img src="docs/screenshots/43-stats-hearing.png" width="260" alt="Accuracy by kind of sound and pitch pattern">
+</p>
+
 Open it by tapping the progress card on the home screen (記録を見る).
 
 - **Totals:** questions answered, days practised, current streak, best streak, known words and words seen in word cards.
 - **Last 30 days:** one bar per day with your daily goal as a dashed line. Bars that reach the goal are highlighted, and tapping a bar shows that day's count.
+- **Skills** (スキル): accuracy for listening, vocabulary, grammar, kanji, pitch accent and pronunciation, each made from the drills that train it.
+- **Word stages** (言葉の段階): how many words you have **met** (in lines you practised), **memorised** (marked as known or long-term in word cards), **understood by ear** (in lines you answered correctly) and **said** (in lines you passed in shadowing). Seeing a word is not the same as catching it by ear or being able to say it, and this shows the difference.
 - **Accuracy by drill,** with your weakest drill called out.
 - **Hearing the difference (聞き分け):** your accuracy for each kind of sound in the [listening](#listening-聞き取り) drill (っ, long vowels, ゛, ゃゅょ, ん) and for each pattern in the [pitch accent](#pitch-accent-アクセント) drill (平板, 頭高, 中高, 尾高). When you pick a wrong option, the listening drill also tells you which kind of sound it was.
 
