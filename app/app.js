@@ -310,6 +310,7 @@ const ELIG = {
   shadowing: l => durOf(l) >= 0.8 && durOf(l) <= 12 && flatLen(l) >= 3,
   accent: l => accentCands(l).length > 0,
   kanji: l => kanjiCands(l).length > 0,
+  deep: l => durOf(l) >= 1.2 && durOf(l) <= 12 && flatLen(l) >= 6,
 };
 function weightOf(l) {
   const p = S.prog[l.id]; if (!p) return 1.5;
@@ -352,7 +353,7 @@ function sentenceEl(l, opts = {}) {
     const cls = ['w'];
     if (opts.hl && i >= opts.hl[0] && i <= opts.hl[1]) cls.push('g-hl');
     if (opts.status && opts.status[i]) cls.push('st-' + opts.status[i]);
-    const s = S.settings.furi && t.f && t.f.some(x => x[1]) ? h('span', { class: cls.join(' '), html: furiHtml(t) }) : h('span', { class: cls.join(' ') }, t.s);
+    const s = (opts.furi ?? S.settings.furi) && t.f && t.f.some(x => x[1]) ? h('span', { class: cls.join(' '), html: furiHtml(t) }) : h('span', { class: cls.join(' ') }, t.s);
     if (opts.tap !== false && t.p !== 'sym') s.addEventListener('click', e => { e.stopPropagation(); wordSheet(l, t); });
     el.append(s);
   });
@@ -521,9 +522,12 @@ function resultBlock(l, extra = {}) {
     if (gl.length) box.append(h('div', { class: 'gchips' }, gl.slice(0, 8).map(g => h('button', { class: 'gchip', onclick: () => grammarSheet(g[0]) }, lvBadge(gLv(g[0])), ' ', S.grammar[g[0]][0]))));
   }
   box.append(h('div', { class: 'meta-line' }, `${epLabel(l.ep)} ・ ${fmtTime(l.st)} ・ 言葉をタップすると意味が出ます`));
-  box.append(h('div', { style: 'margin-top:10px' }, ankiBtn(l)));
+  box.append(h('div', { class: 'row', style: 'margin-top:10px;gap:8px;flex-wrap:wrap' }, ankiBtn(l),
+    ROUND && ROUND.mode === 'deep' ? null : h('button', { class: 'btn sm', html: ICON.headphones + '<span>じっくり聞く</span>', onclick: () => deepOne(l) })));
   return box;
 }
+// ひとつの文を「じっくり聞く」（結果の画面から）
+function deepOne(l) { ROUND = { mode: 'deep', i: 1, n: 1, ok: 0, done: 0, used: new Set([l.id]), log: [] }; CLEANUP.forEach(f => { try { f(); } catch (e) { } }); CLEANUP = []; window.scrollTo(0, 0); EX.deep(l, exShell('deep', l)); }
 
 // Anki のカードの中身（.apkg と AnkiConnect で共通。anki.js のノートタイプと同じ）
 const ANKI_MODEL = '耳から日本語（動画）';
@@ -647,7 +651,7 @@ function playerEl(l, { autoplay = true, onended = null } = {}) {
   const wrap = h('div', { class: 'player' + (book ? ' audio-only book' : S.settings.video ? '' : ' audio-only') }, vid, ld, h('div', { class: 'aud', html: ICON.headphones + `<span>${book ? esc(epLabel(l.ep)) : '音声のみ'}</span>` }));
   const rateBtn = rateChip(() => play(), 'btn');
   const vidBtn = h('button', { class: 'btn' + (S.settings.video ? ' on' : ''), html: ICON.eye + '<span>映像</span>' });
-  const play = async () => { vid.playbackRate = rateFor(l); vid.currentTime = 0; logPlay(l); try { await vid.play(); } catch (e) { } };
+  const play = async () => { vid.playbackRate = box.rate || rateFor(l); vid.currentTime = 0; logPlay(l); try { await vid.play(); } catch (e) { } };
   const replay = h('button', { class: 'btn', html: ICON.replay + '<span>もう一度</span>', onclick: play });
   vidBtn.onclick = () => { S.settings.video = !S.settings.video; vidBtn.classList.toggle('on', S.settings.video); wrap.classList.toggle('audio-only', !S.settings.video || book); saveSettings(); };
   wrap.addEventListener('click', play);
@@ -698,6 +702,7 @@ function go(view, arg) {
 
 const MODES = [
   ['mezcla', 'ミックス練習', 'いろいろな練習をランダムに出します', ICON.shuffle, 1],
+  ['deep', 'じっくり聞く', '字幕なし → 書く → ゆっくり → 言葉 → まねる → もう一度。苦手な文から', ICON.headphones, 6],
   ['dictado', '書き取り', '聞いて、文を書こう', ICON.pen, 2],
   ['hueco', '穴埋め', 'ぬけている言葉は？', ICON.blank, 3],
   ['ordenar', '並べ替え', 'ブロックを正しい順に', ICON.sort, 4],
@@ -799,7 +804,7 @@ function viewHome() {
   const watch = ['listen', 'エピソードを通して見る', '動画を見ながら、字幕が言葉ごとに色づく', ICON.eye, 5];
   const modes = book ? [MODES[0], ['listen', '章リスニング', '章を最初から聞きながら、文字を追いかける', ICON.headphones, 6], ...MODES.slice(1), tango] : [...MODES, watch, tango];
   for (const [id, t, d, ic, c] of modes) {
-    const wide = id === 'mezcla' || id === 'listen' || id === 'tango';
+    const wide = id === 'mezcla' || id === 'listen' || id === 'tango' || id === 'deep';
     const el = h('button', { class: 'mode' + (id === 'mezcla' ? ' primary' : wide ? ' wide' : ''), style: `--c:var(--t${c});--cs:var(--t${c}s)`, onclick: () => id === 'listen' ? go('listen') : id === 'tango' ? go('wordquiz') : startRound(id) },
       h('span', { class: 'ic', html: ic }), h('span', { class: 'tx' }, h('span', { class: 't' }, t), h('span', { class: 'd' }, d)));
     if (!wide) { el.append(...el.querySelector('.tx').childNodes); el.querySelector('.tx').remove(); }
@@ -874,7 +879,7 @@ function viewSettings() {
 }
 
 // ================= アプリの更新 =================
-const APP_VERSION = 21; // sw.js の CACHE（animejp-v21）と同じ番号にする
+const APP_VERSION = 22; // sw.js の CACHE（animejp-v22）と同じ番号にする
 async function latestVersion() {
   const txt = await fetch('sw.js?nc=' + Date.now(), { cache: 'no-store' }).then(r => r.text());
   const m = txt.match(/animejp-v(\d+)/); return m ? +m[1] : 0;
@@ -1003,8 +1008,8 @@ function confirmInline(list, ep) {
 // ================= ラウンド =================
 let ROUND = null;
 const KINDS = ['dictado', 'hueco', 'ordenar', 'oido', 'gramatica', 'shadowing', 'accent', 'kanji'];
-const KIND_NAME = { dictado: '書き取り', hueco: '穴埋め', ordenar: '並べ替え', oido: '聞き取り', gramatica: '文法', shadowing: 'シャドーイング', accent: 'アクセント', kanji: '漢字' };
-function startRound(mode) { ROUND = { mode, i: 0, n: S.settings.roundLen, ok: 0, done: 0, used: new Set(), log: [] }; nextItem(); }
+const KIND_NAME = { dictado: '書き取り', hueco: '穴埋め', ordenar: '並べ替え', oido: '聞き取り', gramatica: '文法', shadowing: 'シャドーイング', accent: 'アクセント', kanji: '漢字', deep: 'じっくり聞く' };
+function startRound(mode) { ROUND = { mode, i: 0, n: mode === 'deep' ? 3 : S.settings.roundLen, ok: 0, done: 0, used: new Set(), log: [] }; nextItem(); }
 function nextItem() {
   if (ROUND.i >= ROUND.n) return go('summary');
   let kind = ROUND.mode === 'mezcla' ? pick(['dictado', 'dictado', 'hueco', 'ordenar', 'oido', 'gramatica', 'gramatica', 'shadowing', 'accent', 'kanji']) : ROUND.mode;
@@ -1244,6 +1249,69 @@ const EX = {
   },
 
   shadowing(l, w) { shadowingUI(l, w, true); },
+
+  // 字幕なしで聞く → わかったことを書く → ゆっくり・文字つき → 言葉と文法 → まねる → ふつうの速さでもう一度
+  deep(l, w) {
+    const NAMES = ['聞く', '書く', 'ゆっくり', '言葉', 'まねる', 'もう一度'];
+    const bar = h('div', { class: 'deepsteps' }, NAMES.map((n, i) => h('span', { class: 'ds' }, `${i + 1} ${n}`)));
+    const setStep = i => bar.querySelectorAll('.ds').forEach((x, k) => { x.classList.toggle('on', k === i); x.classList.toggle('done', k < i); });
+    const pl = playerEl(l); pl.rate = 1;
+    const area = h('div');
+    w.append(bar, pl, area);
+    const section = (i, title, ...kids) => { setStep(i); const sec = h('div', { class: 'deepsec' }, h('div', { class: 'qtitle' }, `${i + 1}. ${title}`), ...kids); area.append(sec); setTimeout(() => sec.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60); return sec; };
+    const next = (label, fn) => setBar(w, h('button', { class: 'btn primary', onclick: fn }, label));
+    // 1
+    section(0, '字幕なしで聞こう。何回聞いてもいいよ。', h('p', { class: 'small muted' }, '動画をタップするともう一度。'));
+    next('2. わかったところを書く', step2);
+    function step2() {
+      const ta = h('textarea', { class: 'ans', rows: 2, lang: 'ja', autocomplete: 'off', spellcheck: 'false', placeholder: 'かなでも、少しだけでもOK。空のままでも大丈夫。' });
+      const res = h('div');
+      section(1, 'わかったところを書こう', ta, res);
+      setTimeout(() => ta.focus(), 300);
+      next('答えを見る', () => {
+        ta.disabled = true;
+        if (ta.value.trim()) { const r = JA.alignJa(l.tk, ta.value); res.append(h('div', { class: 'card' }, h('div', { class: 'small muted' }, `聞き取れた：${Math.round(r.score * 100)}%`), sentenceEl(l, { status: r.status }))); }
+        else res.append(h('div', { class: 'card' }, sentenceEl(l)));
+        next('3. ゆっくり、文字を見ながら聞く', step3);
+      });
+    }
+    function step3() {
+      pl.rate = 0.75; pl.play();
+      const tr = h('div', { class: 'trans', style: 'display:none' }, h('span', { class: 'tag' }, trLabel(l)), l.es || '');
+      section(2, '0.75倍で、ふりがなつきの文を見ながら', h('div', { class: 'card' }, sentenceEl(l, { furi: true }), l.es ? tr : null,
+        l.es ? h('button', { class: 'btn sm ghost', style: 'margin-top:8px', onclick: e => { tr.style.display = ''; e.currentTarget.remove(); } }, '翻訳を見る') : null));
+      next('4. 言葉と文法', step4);
+    }
+    function step4() {
+      const seen = new Set();
+      const words = l.tk.filter(t => CONTENT_P.includes(t.p) && vocabOf(l, t)?.g?.length && !seen.has(t.b) && seen.add(t.b));
+      const seenG = new Set();
+      const gl = (l.gr || []).filter(g => S.grammar[g[0]] && !gBasic(g[0]) && !seenG.has(g[0]) && seenG.add(g[0]));
+      section(3, '文の中の言葉と文法（タップでくわしく）', h('div', { class: 'card' },
+        words.map(t => { const v = vocabOf(l, t); return h('div', { class: 'vrow', onclick: () => wordSheet(l, t) },
+          h('div', { class: 'vmain' }, h('div', {}, h('span', { class: 'vw' }, t.b), ' ', h('span', { class: 'vr' }, v.r + (v.a != null ? `・${pitchName(v.a, moraeOf(v.r).length)}` : ''))), h('div', { class: 'vg' }, v.ja || v.g[0])),
+          S.known.has(t.b) ? h('span', { class: 'cnt' }, '✓') : null); }),
+        gl.length ? h('div', { class: 'gchips', style: 'margin-top:8px' }, gl.map(g => h('button', { class: 'gchip', onclick: () => grammarSheet(g[0]) }, lvBadge(gLv(g[0])), ' ', S.grammar[g[0]][0]))) : null));
+      next('5. まねして言う', step5);
+    }
+    function step5() {
+      const sh = h('div');
+      section(4, 'シャドーイング：まねして言ってみよう', sh);
+      pl.rate = 1;
+      shadowingUI(l, sh, false);
+      sh.append(h('button', { class: 'btn primary', style: 'width:100%;margin-top:12px', onclick: step6 }, '6. ふつうの速さでもう一度聞く'));
+    }
+    function step6() {
+      stopRecording();
+      area.querySelectorAll('.deepsec').forEach(x => x.style.display = 'none');
+      const q = h('div', { class: 'opts' });
+      const rate = ok => { finish(l, 'deep', ok); q.querySelectorAll('button').forEach(b => b.disabled = true); w.append(verdict(ok === true ? 'ok' : ok === false ? 'bad' : 'mid', ok === true ? 'よくできました！' : ok === false ? 'また今度、じっくり聞こう' : 'あと少し！', q), resultBlock(l)); nextBar(w); };
+      section(5, 'ふつうの速さで、字幕なしで。どのくらいわかった？', q);
+      q.append(h('button', { class: 'opt', onclick: () => rate(true) }, 'ぜんぶわかった'), h('button', { class: 'opt', onclick: () => rate(null) }, 'だいたいわかった'), h('button', { class: 'opt', onclick: () => rate(false) }, 'まだむずかしい'));
+      setBar(w, h('button', { class: 'btn', onclick: () => pl.play() }, 'もう一度聞く'));
+      pl.rate = 1; window.scrollTo(0, 0); pl.play();
+    }
+  },
 
   kanji(l, w) {
     let cands = shuffle(kanjiCands(l));
@@ -1696,7 +1764,7 @@ function viewStats() {
     h('div', { class: 'daxis' }, h('span', {}, fmt(days[0].d)), h('span', {}, fmt(days[15].d)), h('span', {}, '今日'))));
 
   // 練習ごとの正解率
-  const kinds = [...KINDS, 'tango', ...(S.kstat.passage ? ['passage'] : [])];
+  const kinds = [...KINDS, 'tango', ...(S.kstat.deep ? ['deep'] : []), ...(S.kstat.passage ? ['passage'] : [])];
   const names = { ...KIND_NAME, tango: '単語カード', passage: '段落リスニング' };
   const rows = h('div', { class: 'kacc' });
   for (const k of kinds) {

@@ -428,3 +428,9 @@ select{-webkit-appearance:none;appearance:none;padding-right:34px;background-ima
 .kchip small{font-size:12px;color:var(--muted);font-family:system-ui,sans-serif}
 .kbig{font-size:64px;line-height:1;font-family:var(--ja);min-width:1.1em;text-align:center}
 .vw mark{background:var(--accent-soft);color:var(--accent);border-radius:4px;padding:0 1px}
+/* じっくり聞く */
+.deepsteps{display:flex;gap:4px;margin:0 0 10px;overflow-x:auto;scrollbar-width:none}
+.deepsteps .ds{flex:none;font-size:12px;padding:4px 9px;border-radius:12px;background:var(--surface2);color:var(--muted);white-space:nowrap}
+.deepsteps .ds.done{color:var(--accent)}
+.deepsteps .ds.on{background:var(--accent);color:var(--accent-ink);font-weight:700}
+.deepsec{scroll-margin-top:70px;margin-top:10px}
