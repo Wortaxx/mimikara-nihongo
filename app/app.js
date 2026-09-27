@@ -69,6 +69,7 @@ const ICON = {
   pen: I('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'),
   blank: I('<rect x="3" y="7" width="7" height="10" rx="2"/><path d="M14 17h7"/>'),
   sort: I('<rect x="3" y="4" width="8" height="6" rx="1.5"/><rect x="13" y="14" width="8" height="6" rx="1.5"/><path d="M15 7h4v4M9 17H5v-4"/>'),
+  pitch: I('<path d="M3 17h4V8h5v7h4V6h5"/>'),
   ear: I('<path d="M6 8.5a6 6 0 1 1 12 0c0 3-2 4-3 5.5s-1 3.5-3.5 3.5A2.5 2.5 0 0 1 9 15"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0"/>'),
   gram: I('<path d="M4 6h16M4 12h10M4 18h7"/><circle cx="18" cy="16" r="3"/>'),
   book: I('<path d="M2 4h7a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H2zM22 4h-7a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h8z"/>'),
@@ -248,6 +249,12 @@ const CONTENT_P = ['v', 'adj', 'adjna', 'n', 'adv'];
 const vocabOf = (l, t) => { const e = S.eps[l.ep]; return e && e.vocab && e.vocab[t.b]; };
 const cleanForm = t => ['n', 'adv', 'adjna'].includes(t.p) || t.s === t.b; // 活用で形が変わった動詞（教わっ など）は選択肢にしない
 const blankCands = l => l.tk.map((t, i) => [t, i]).filter(([t]) => CONTENT_P.includes(t.p) && cleanForm(t) && vocabOf(l, t)?.g?.length);
+// アクセントの練習に使える言葉：辞書形のままの名詞で、アクセントがわかっていて 2〜6拍
+const accentCands = l => l.tk.map((t, i) => [t, i]).filter(([t]) => {
+  if (t.p !== 'n' || t.s !== t.b || !t.r) return false;
+  const v = vocabOf(l, t), n = moraeOf(t.r).length;
+  return v && v.a != null && v.r === t.r && n >= 2 && n <= 6;
+});
 const ELIG = {
   dictado: l => flatLen(l) >= 2 && flatLen(l) <= 40,
   hueco: l => blankCands(l).length > 0 && l.tk.filter(t => t.p !== 'sp' && t.p !== 'sym').length >= 2,
@@ -255,6 +262,7 @@ const ELIG = {
   oido: l => flatLen(l) >= 4,
   gramatica: l => l.gr && l.gr.some(g => gQuiz(g[0])),
   shadowing: l => durOf(l) >= 0.8 && durOf(l) <= 12 && flatLen(l) >= 3,
+  accent: l => accentCands(l).length > 0,
 };
 function weightOf(l) {
   const p = S.prog[l.id]; if (!p) return 1.5;
@@ -312,6 +320,37 @@ function sheet(content) {
   (document.fullscreenElement || document.body).append(bg); return bg;
 }
 function vocabEntry(base) { for (const e of Object.values(S.eps)) if (e.vocab && e.vocab[base]) return e.vocab[base]; return null; }
+// ================= ピッチアクセント（UniDic の東京式アクセント） =================
+// a = 0：平板、a = n：n拍目のあとで下がる
+const pitchName = (a, n) => a === 0 ? '平板' : a === 1 ? '頭高' : a >= n ? '尾高' : '中高';
+const PITCH_HOW = { 平板: 'ひくく始まって高くなり、そのまま下がりません。うしろの「が」も高いまま。', 頭高: '最初の音だけ高く、そのあと下がります。', 中高: '真ん中で高くなって、語の中で下がります。', 尾高: '最後まで高いまま。でも、うしろの「が」で下がります。' };
+function pitchSvg(kana, a, big = false) {
+  const m = moraeOf(kana), n = m.length, W = big ? 34 : 28, H = big ? 30 : 24;
+  const hi = m.map((_, i) => a === 0 ? i > 0 : a === 1 ? i === 0 : i > 0 && i < a);
+  hi.push(a === 0);
+  const X = i => W / 2 + i * W, Y = b => b ? 8 : 8 + H, ty = H + (big ? 34 : 30), hh = H + (big ? 42 : 36);
+  const pts = hi.map((b, i) => `${X(i)},${Y(b)}`).join(' ');
+  const dots = hi.map((b, i) => `<circle cx="${X(i)}" cy="${Y(b)}" r="${big ? 5.5 : 4.5}" ${i === n ? 'fill="var(--surface)" stroke="currentColor" stroke-width="2"' : 'fill="currentColor"'}/>`).join('');
+  const txt = [...m, 'が'].map((k, i) => `<text x="${X(i)}" y="${ty}" text-anchor="middle" font-size="${big ? 16 : 13}" fill="${i === n ? 'var(--muted)' : 'var(--text)'}">${esc(k)}</text>`).join('');
+  return `<svg class="pitchsvg" width="${W * (n + 1)}" height="${hh}" viewBox="0 0 ${W * (n + 1)} ${hh}" style="color:var(--accent)"><polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/>${dots}${txt}</svg>`;
+}
+// 同じ読みの言葉（アクセントのちがいを見せる）
+const HOMO = new Map();
+function homophones(r) {
+  const sec = SEC();
+  if (!HOMO.has(sec)) {
+    const idx = new Map(), seen = new Set();
+    for (const id of secEpIds(sec)) for (const [b, v] of Object.entries(S.eps[id].vocab || {})) {
+      if (v.a == null || !v.r || v.p !== 'n' || seen.has(b)) continue;
+      seen.add(b); if (!idx.has(v.r)) idx.set(v.r, []); idx.get(v.r).push({ b, a: v.a });
+    }
+    HOMO.set(sec, idx);
+  }
+  return HOMO.get(sec).get(r) || [];
+}
+function pitchRow(r, a) {
+  return h('div', { class: 'pitchrow' }, h('span', { html: pitchSvg(r, a) }), h('span', { class: 'small muted' }, `アクセント：${pitchName(a, moraeOf(r).length)}`));
+}
 function wordSheet(l, t) { wordSheetBase(t.b || t.s, t, l); }
 function wordSheetBase(base, t, l) {
   { const Y = yearRec(); Y.look[base] = (Y.look[base] || 0) + 1; logCount('look'); }
@@ -324,6 +363,7 @@ function wordSheetBase(base, t, l) {
   const box = h('div', {},
     h('div', { class: 'row', style: 'justify-content:space-between;align-items:flex-start' }, h('div', { class: 'hw' }, base), kb),
     h('div', { class: 'rd' }, ['読み：' + ((v && v.r) || (t && t.r) || '―'), POS_JA[p] || ''].filter(Boolean).join('　・　')),
+    v && v.a != null && v.r ? pitchRow(v.r, v.a) : null,
     t && t.b && t.b !== t.s ? h('div', { class: 'small muted' }, `この文では「${t.s}」`) : null,
     v && v.g && v.g.length ? h('ol', {}, v.g.map(g => h('li', {}, g))) :
       h('p', { class: 'muted' }, p === 'pn' ? '人や場所などの名前です。' : p === 'prt' || p === 'aux' ? '文法の言葉です。文の「文法」ボタンで説明を見られます。' : '辞書にのっていません。'),
@@ -539,6 +579,7 @@ const MODES = [
   ['oido', '聞き取り', '聞こえた文をえらぼう', ICON.ear, 5],
   ['gramatica', '文法', 'この表現の意味は？', ICON.gram, 6],
   ['shadowing', 'シャドーイング', 'まねして話して、採点', ICON.mic, 7],
+  ['accent', 'アクセント', '高い・低いを聞き分けよう', ICON.pitch, 3],
 ];
 const TOOLS = [
   ['lector', '読む', 'エピソードを一行ずつ', ICON.book, 8],
@@ -628,9 +669,9 @@ function viewHome() {
   const m = h('div', { class: 'modes' });
   const tango = ['tango', '単語カード', `まだ覚えていない言葉を復習（今日 ${wordsDue()} 語）`, ICON.cards, 8];
   const watch = ['listen', 'エピソードを通して見る', '動画を見ながら、字幕が言葉ごとに色づく', ICON.eye, 5];
-  const modes = book ? [MODES[0], ['listen', '章リスニング', '章を最初から聞きながら、文字を追いかける', ICON.headphones, 6], ...MODES.slice(1), tango] : [...MODES, watch, tango];
+  const modes = book ? [MODES[0], ['listen', '章リスニング', '章を最初から聞きながら、文字を追いかける', ICON.headphones, 6], ...MODES.slice(1), tango] : [...MODES, tango, watch];
   for (const [id, t, d, ic, c] of modes) {
-    const wide = id === 'mezcla' || id === 'listen' || id === 'tango';
+    const wide = id === 'mezcla' || id === 'listen';
     const el = h('button', { class: 'mode' + (id === 'mezcla' ? ' primary' : wide ? ' wide' : ''), style: `--c:var(--t${c});--cs:var(--t${c}s)`, onclick: () => id === 'listen' ? go('listen') : id === 'tango' ? go('wordquiz') : startRound(id) },
       h('span', { class: 'ic', html: ic }), h('span', { class: 'tx' }, h('span', { class: 't' }, t), h('span', { class: 'd' }, d)));
     if (!wide) { el.append(...el.querySelector('.tx').childNodes); el.querySelector('.tx').remove(); }
@@ -705,7 +746,7 @@ function viewSettings() {
 }
 
 // ================= アプリの更新 =================
-const APP_VERSION = 16; // sw.js の CACHE（animejp-v16）と同じ番号にする
+const APP_VERSION = 17; // sw.js の CACHE（animejp-v17）と同じ番号にする
 async function latestVersion() {
   const txt = await fetch('sw.js?nc=' + Date.now(), { cache: 'no-store' }).then(r => r.text());
   const m = txt.match(/animejp-v(\d+)/); return m ? +m[1] : 0;
@@ -833,12 +874,12 @@ function confirmInline(list, ep) {
 
 // ================= ラウンド =================
 let ROUND = null;
-const KINDS = ['dictado', 'hueco', 'ordenar', 'oido', 'gramatica', 'shadowing'];
-const KIND_NAME = { dictado: '書き取り', hueco: '穴埋め', ordenar: '並べ替え', oido: '聞き取り', gramatica: '文法', shadowing: 'シャドーイング' };
+const KINDS = ['dictado', 'hueco', 'ordenar', 'oido', 'gramatica', 'shadowing', 'accent'];
+const KIND_NAME = { dictado: '書き取り', hueco: '穴埋め', ordenar: '並べ替え', oido: '聞き取り', gramatica: '文法', shadowing: 'シャドーイング', accent: 'アクセント' };
 function startRound(mode) { ROUND = { mode, i: 0, n: S.settings.roundLen, ok: 0, done: 0, used: new Set(), log: [] }; nextItem(); }
 function nextItem() {
   if (ROUND.i >= ROUND.n) return go('summary');
-  let kind = ROUND.mode === 'mezcla' ? pick(['dictado', 'dictado', 'hueco', 'ordenar', 'oido', 'gramatica', 'gramatica', 'shadowing']) : ROUND.mode;
+  let kind = ROUND.mode === 'mezcla' ? pick(['dictado', 'dictado', 'hueco', 'ordenar', 'oido', 'gramatica', 'gramatica', 'shadowing', 'accent']) : ROUND.mode;
   let line = pickLine(kind, ROUND.used);
   if (!line && ROUND.mode === 'mezcla') for (const k of shuffle(KINDS)) { line = pickLine(k, ROUND.used); if (line) { kind = k; break; } }
   if (!line) { if (!ROUND.i) { toast('今の条件では、この練習に使える文がありません。'); return go('home'); } return go('summary'); }
@@ -1074,6 +1115,40 @@ const EX = {
   },
 
   shadowing(l, w) { shadowingUI(l, w, true); },
+
+  accent(l, w) {
+    const cands = shuffle(accentCands(l));
+    // 同じ読みでアクセントがちがう言葉（橋・箸・端など）があるものを多めに出す
+    const homo = cands.filter(([t]) => homophones(t.r).some(x => x.a !== vocabOf(l, t).a));
+    const [t, ti] = (homo.length && Math.random() < 0.6 ? homo : cands.filter(([t]) => !S.known.has(t.b)).concat(cands))[0];
+    const a = vocabOf(l, t).a, n = moraeOf(t.r).length, name = pitchName(a, n);
+    // 選択肢：拍の数に合うパターン（平板・頭高・中高…・尾高）から4つまで
+    const all = [...Array(n + 1).keys()];
+    const opts = shuffle(n + 1 <= 4 ? all : [a, ...shuffle(all.filter(x => x !== a && x <= 1)), ...shuffle(all.filter(x => x > 1 && x !== a))].slice(0, 4));
+    w.append(playerEl(l));
+    w.append(h('div', { class: 'qtitle' }, `「${t.s}」のアクセントはどれ？`));
+    const sc = h('div', { class: 'card' }, sentenceEl(l, { hl: [ti, ti], tap: false }));
+    w.append(sc);
+    const box = h('div', { class: 'opts pitchopts' });
+    opts.forEach(o => box.append(h('button', { class: 'opt', onclick: e => {
+      const ok = o === a;
+      box.classList.add('done'); box.querySelectorAll('.opt').forEach((b, k) => { b.disabled = true; if (opts[k] === a) b.classList.add('right'); });
+      if (!ok) e.currentTarget.classList.add('wrong');
+      finish(l, 'accent', ok);
+      w.append(verdict(ok ? 'ok' : 'bad', ok ? `正解！ ${name}` : `正解は「${name}」`, box));
+      const others = homophones(t.r).filter(x => x.b !== t.b);
+      w.append(h('div', { class: 'card' },
+        h('div', { class: 'row', style: 'gap:10px;align-items:baseline' }, h('b', { style: 'font-size:20px' }, t.s), h('span', { class: 'muted' }, `${t.r}・${name}`)),
+        h('div', { html: pitchSvg(t.r, a, true), style: 'margin:6px 0' }),
+        h('p', { style: 'margin:0 0 6px' }, PITCH_HOW[name]),
+        others.length ? h('div', {}, h('div', { class: 'section-title', style: 'margin-top:10px' }, '同じ読みの言葉'),
+          others.slice(0, 4).map(x => h('div', { class: 'pitchrow' }, h('b', { style: 'min-width:3em' }, x.b), h('span', { html: pitchSvg(t.r, x.a) }), h('span', { class: 'small muted' }, pitchName(x.a, n) + (x.a === a ? '（同じ）' : ''))))) : null,
+        h('p', { class: 'small muted', style: 'margin:8px 0 0' }, '辞書（東京式）のアクセントです。文の中や、キャラクターの話し方で変わることもあります。')));
+      w.append(resultBlock(l, { hl: [ti, ti] })); nextBar(w);
+    } }, h('span', { html: pitchSvg(t.r, o, true) }), h('span', { class: 'pname' }, pitchName(o, n)))));
+    w.append(box);
+    setBar(w, h('button', { class: 'btn ghost', onclick: () => [...box.children].find((b, k) => opts[k] !== a)?.click() }, 'わからない'));
+  },
 };
 
 // ================= シャドーイング =================

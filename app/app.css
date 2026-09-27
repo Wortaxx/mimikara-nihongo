@@ -391,3 +391,10 @@ select{-webkit-appearance:none;appearance:none;padding-right:34px;background-ima
 .opts.done .opt .df{text-decoration:underline;text-underline-offset:4px}
 .opts.done .opt .df.ch{color:var(--bad);font-weight:700}
 .opts.done .opt.right .df{color:var(--ok);font-weight:700}
+/* アクセント */
+.pitchrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:4px 0}
+.pitchsvg{display:block;overflow:visible}
+.pitchopts{grid-template-columns:1fr 1fr}
+.pitchopts .opt{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px}
+.pitchopts .pname{font-size:13px;color:var(--muted);visibility:hidden}
+.pitchopts.done .pname{visibility:visible}

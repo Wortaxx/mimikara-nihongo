@@ -78,7 +78,7 @@ flowchart LR
 - [🧠 How it works](#-how-it-works)
 - [✨ Features](#-features)
   - [Home screen](#home-screen) · [Episodes and importing](#episodes-and-importing)
-  - [Practice drills](#practice-drills-練習): [Mixed](#mixed-practice-ミックス練習) · [Dictation](#dictation-書き取り) · [Fill in the blank](#fill-in-the-blank-穴埋め) · [Order](#sentence-order-並べ替え) · [Listening](#listening-聞き取り) · [Grammar](#grammar-文法) · [Shadowing](#shadowing-シャドーイング) · [Word cards](#word-cards-単語カード) · [Summary](#round-summary-結果)
+  - [Practice drills](#practice-drills-練習): [Mixed](#mixed-practice-ミックス練習) · [Dictation](#dictation-書き取り) · [Fill in the blank](#fill-in-the-blank-穴埋め) · [Order](#sentence-order-並べ替え) · [Listening](#listening-聞き取り) · [Grammar](#grammar-文法) · [Shadowing](#shadowing-シャドーイング) · [Pitch accent](#pitch-accent-アクセント) · [Word cards](#word-cards-単語カード) · [Summary](#round-summary-結果)
   - [Watch whole episodes](#watch-whole-episodes-エピソードを通して見る)
   - [Learning tools](#learning-tools-学ぶ): [Reader](#reader-読む) · [Furigana](#furigana) · [Word details](#word-details) · [Grammar details](#grammar-details) · [Vocabulary](#vocabulary-単語帳) · [Grammar list](#grammar-list-文法リスト)
   - [Progress](#progress-記録) · [Yearly wrap-up](#yearly-wrap-up-年間まとめ) · [Anki](#anki) · [Settings](#settings-設定) · [Light and dark themes](#light-and-dark-themes)
@@ -201,6 +201,12 @@ Record yourself repeating the line, either after the clip (クリップのあと
 > [!IMPORTANT]
 > The microphone only works when the app is opened over HTTPS (or on `localhost`). The pronunciation score uses the browser's speech recognition, so it also needs an internet connection.
 
+#### Pitch accent (アクセント)
+
+Listen to a line and choose the **pitch pattern** of the highlighted noun: 平板 (flat), 頭高 (high first), 中高 (drops in the middle) or 尾高 (drops on the particle after it). Each option is drawn as high and low dots over the kana, with a hollow dot for a following が. After you answer you get the correct pattern, what it means, and other words in your episodes with the **same reading but a different accent** (橋 / 箸 / 端), which the drill picks more often.
+
+The accents are the Tokyo-standard ones from UniDic, stored in the pack when it is created, so packs made before this drill existed need to be created again (`--rehacer`). Real speech can differ a little: compound words, sentence intonation and how a character talks all bend the dictionary pattern. The same pitch diagram also appears in [word details](#word-details).
+
 #### Word cards (単語カード)
 
 <p align="center">
@@ -264,7 +270,7 @@ Optional, and off by default. When turned on in Settings (ふりがなを表示�
   <img src="docs/screenshots/13-word-sheet.png" width="260" alt="Word details">
 </p>
 
-Tap any word anywhere in the app to see its dictionary form, reading, part of speech, meanings (JMdict, in English), how often it appears, and example lines with audio. **覚えた？** marks it as known.
+Tap any word anywhere in the app to see its dictionary form, reading, pitch accent, part of speech, meanings (JMdict, in English), how often it appears, and example lines with audio. **覚えた？** marks it as known.
 
 #### Grammar details
 

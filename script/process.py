@@ -197,6 +197,9 @@ def tokenize(tagger, dic, text, overrides, vocab, feats):
                 if not ent and p != "pn" and re.fullmatch(r"[0-9０-９]+", base):
                     toks.append(t); continue
                 vocab[key] = {"r": rb, "p": p, "g": ent["g"] if ent else [], "c": bool(ent and ent["common"]), "n": 0}
+                # pitch accent of the dictionary form (Tokyo standard, from UniDic): 0 = flat, n = drops after mora n
+                acc = (getattr(f, "aType", None) or "*").split(",")[0]
+                if acc.isdigit() and p != "pn": vocab[key]["a"] = int(acc)
             vocab[key]["n"] += 1
             if vocab[key]["p"] == "pn": t["p"] = "pn"
         if f.pos2 == "非自立可能": t["nz"] = 1
