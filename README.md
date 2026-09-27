@@ -635,6 +635,7 @@ The packs are written to `<project>\paquetes\anime\<series folder name>\S01E01.z
 | `--salida "D:\packs"` | Write the packs somewhere else. |
 | `--rehacer` | Rebuild episodes that already have a `.zip`, for example after updating the script. |
 | `--no-unir` | Don't merge consecutive subtitle lines from the same speaker into one sentence. |
+| `--desfase 4500` | Set the subtitle offset by hand, in milliseconds, instead of detecting it (only if the clips come out early or late). Positive when the subtitles are later than the video. |
 | `--completo` | Also include the **whole episode** as one video, so it can be watched from start to finish in [エピソードを通して見る](#watch-whole-episodes-エピソードを通して見る). 360p by default (about 30–40 MB per episode); `--completo 720` for HD (about 125 MB) or `--completo 1080` for Full HD (about 275 MB). The drill clips keep their own quality. |
 | `--calidad ligera` | Lighter clips (270p instead of 360p): about **37 % smaller**, with hardly any visible difference on a phone. Use it together with `--rehacer` to shrink episodes you already made. |
 
@@ -647,7 +648,7 @@ The packs are written to `<project>\paquetes\anime\<series folder name>\S01E01.z
 
 1. Cleans the Japanese subtitles: removes speaker names in brackets, song lyrics and sound effects.
 2. Merges consecutive lines spoken by the same character into one sentence and one clip. The speaker comes from the name in brackets in the Japanese subtitle, or from the *Actor* field of the embedded subtitles.
-3. Measures the offset between the subtitles and the audio, and corrects it.
+3. Measures the offset between the subtitles and the video, and corrects it. It is different for every anime and even every episode, so it is found automatically: first by matching the Japanese subtitles against the video's own subtitles (already in sync with the picture), which finds offsets of up to ±20 s, for example subtitles taken from a TV recording and a video from a web release; then fine-tuned with the audio. Without embedded subtitles it uses the audio alone. If it ever gets it wrong, `--desfase` sets it by hand.
 4. Splits each sentence into words with readings and furigana, looks up meanings in JMdict, and detects JLPT grammar patterns.
 5. Rates each sentence as easy, normal or hard.
 6. Cuts a 360p clip (H.264 + AAC) for every sentence, or 270p with `--calidad ligera`.

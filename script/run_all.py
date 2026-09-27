@@ -34,6 +34,7 @@ def main():
     ap.add_argument("carpeta"); ap.add_argument("--solo", nargs="*"); ap.add_argument("--salida"); ap.add_argument("--rehacer", action="store_true", help="vuelve a crear también los episodios que ya tienen .zip")
     ap.add_argument("--no-unir", action="store_true", help="no juntar las líneas seguidas del mismo personaje")
     ap.add_argument("--calidad", choices=["normal", "ligera"], default="normal", help="ligera: clips a 270p, ~37%% más pequeños")
+    ap.add_argument("--desfase", type=int, default=None, help="desfase de los subtítulos en ms para todos los episodios (solo si el automático falla)")
     ap.add_argument("--completo", nargs="?", const="360", choices=["360", "720", "1080"], help="incluir el episodio completo: 360 (por defecto, ~30-40 MB), 720 (HD, ~125 MB) o 1080 (Full HD, ~275 MB)")
     a = ap.parse_args()
     root = a.carpeta
@@ -64,7 +65,7 @@ def main():
         t0 = time.time()
         wdir = os.path.join(work, ep)
         try:
-            process.main(["--srt", subs[ep], "--video", videos[ep], "--ep", ep, "--out", wdir] + (["--no-unir"] if a.no_unir else []) + ["--calidad", a.calidad] + (["--completo", a.completo] if a.completo else []))
+            process.main(["--srt", subs[ep], "--video", videos[ep], "--ep", ep, "--out", wdir] + (["--no-unir"] if a.no_unir else []) + ["--calidad", a.calidad] + (["--completo", a.completo] if a.completo else []) + (["--desfase", str(a.desfase)] if a.desfase is not None else []))
             import zipfile
             tmp = dst + ".part"
             with zipfile.ZipFile(tmp, "w", zipfile.ZIP_STORED) as z:

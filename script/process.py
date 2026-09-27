@@ -223,17 +223,38 @@ def chunks(toks):
     return out
 
 # ---------- synchronisation ----------
-def audio_offset(wav, subs):
+def audio_offset(wav, subs, center=0, search_ms=20000):
+    """How far the subtitles are from the video's audio, in ms (subtitle time − offset = video time):
+    the shift that best lines up the times covered by subtitles with the times that have sound,
+    searched within ±search_ms around `center`."""
     w = wave.open(wav)
     x = np.frombuffer(w.readframes(w.getnframes()), np.int16).astype(np.float32)
-    fr = 160; n = len(x) // fr
+    fr = 160; n = len(x) // fr                                   # 10 ms frames
     e = np.log1p((x[: n * fr].reshape(n, fr) ** 2).mean(1)); e -= np.median(e)
     mask = np.zeros(n)
     for l in subs:
-        mask[l.start // 10: l.end // 10] = 1
-    mask -= mask.mean()
-    best = max(((float((np.roll(mask, -s) * e).sum()), s * 10) for s in range(-400, 401, 2)))
-    return best[1]
+        mask[max(0, l.start // 10): max(0, min(n, l.end // 10))] = 1
+    mc = mask - mask.mean()
+    score = lambda s: float(np.roll(mc, -s) @ e)
+    c, lim = center // 10, search_ms // 10
+    coarse = max(range(c - lim, c + lim + 1, 5 if lim > 100 else 1), key=score)
+    return 10 * max(range(coarse - 5, coarse + 6), key=score)
+
+def subs_offset(subs, ref, search_ms=20000):
+    """The same offset, found by comparing the start times of the Japanese subtitles with those of the video's
+    own subtitles (Spanish/English, already in sync with the picture): the most common difference wins.
+    Much more reliable than the audio for big offsets (subtitles from a TV recording vs a web release).
+    Returns None if too few lines match."""
+    if not ref: return None
+    rs = np.array(sorted(e.start for e in ref)); cnt = {}
+    for l in subs:
+        d = l.start - rs
+        for v in d[np.abs(d) < search_ms]:
+            k = int(round(v / 40)); cnt[k] = cnt.get(k, 0) + 1
+    if not cnt: return None
+    best = max(cnt, key=lambda k: cnt.get(k - 1, 0) + cnt[k] + cnt.get(k + 1, 0))
+    hits = cnt.get(best - 1, 0) + cnt[best] + cnt.get(best + 1, 0)
+    return best * 40 if hits >= max(8, len(subs) // 12) else None
 
 NON_DIALOGUE = re.compile(r"(?:^|[_\-\s])(?:cart\w*|signs?|op|ed|kara\w*|title\w*|song\w*|insert\w*|lyrics?)(?:$|[_\-\s\d])", re.I)
 
@@ -367,6 +388,7 @@ def main(argv=None):
     ap.add_argument("--title", default=""); ap.add_argument("--out", required=True)
     ap.add_argument("--es-stream", default=None, help="índice ffmpeg del subtítulo español dentro del vídeo")
     ap.add_argument("--no-video", action="store_true")
+    ap.add_argument("--desfase", type=int, default=None, help="desfase de los subtítulos en ms (si el automático falla)")
     ap.add_argument("--no-unir", action="store_true", help="no juntar las líneas seguidas del mismo personaje")
     ap.add_argument("--calidad", choices=["normal", "ligera"], default="normal", help="ligera: clips a 270p, ~37%% más pequeños")
     ap.add_argument("--completo", nargs="?", const="360", choices=["360", "720", "1080"], help="incluir el episodio completo en un solo vídeo: 360 (por defecto), 720 (HD) o 1080 (Full HD)")
@@ -391,8 +413,8 @@ def main(argv=None):
         jp = [s for s in auds if s[2] == "jpn"]
         if jp: amap = f"0:{jp[0][0]}"
         subprocess.run([FF, "-v", "error", "-y", "-i", a.video, "-map", amap, "-ac", "1", "-ar", "16000", wav], check=True)
-        offset = audio_offset(wav, [ev for ev, _ in events])
-        print("  desfase subtítulos -> vídeo:", offset, "ms")
+        subs_ev = [ev for ev, _ in events]
+        offset = audio_offset(wav, subs_ev)   # refined below if the video has its own subtitles
         # Translation: Spanish (Spain preferred) → otherwise English → otherwise none.
         idx, tlang = pick_translation(streams, a.es_stream)
         if idx is not None:
@@ -404,6 +426,12 @@ def main(argv=None):
                     m = re.search(r"Episodio\s*\d+\s*(?:\\N|\n|[:.\-–])\s*(.+)", re.sub(r"\{[^}]*\}", "", e.text))
                     if m: title = m.group(1).replace("\\N", " ").strip(); break
             es_events = [e for e in es_all if not NON_DIALOGUE.search(e.style or "")]
+            so = subs_offset(subs_ev, es_events)
+            if so is not None:                    # coarse from the video's subtitles, fine-tuned with the audio (±0.4 s)
+                fine = audio_offset(wav, subs_ev, center=so, search_ms=400)
+                offset = fine if abs(fine - so) < 380 else so
+        if a.desfase is not None: offset = a.desfase
+        print("  desfase subtítulos -> vídeo:", offset, "ms" + (" (a mano)" if a.desfase is not None else ""))
         print("  traducción:", {"es": "español", "en": "inglés (no hay pista en español)"}.get(tlang, "NINGUNA (el vídeo no trae subtítulos en español ni en inglés)"))
 
     for _, (spk, _t, _o) in events:
