@@ -70,6 +70,8 @@ const ICON = {
   pen: I('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'),
   blank: I('<rect x="3" y="7" width="7" height="10" rx="2"/><path d="M14 17h7"/>'),
   sort: I('<rect x="3" y="4" width="8" height="6" rx="1.5"/><rect x="13" y="14" width="8" height="6" rx="1.5"/><path d="M15 7h4v4M9 17H5v-4"/>'),
+  search: I('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'),
+  kanji: I('<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M12 7v10M8 13.5h8"/>'),
   pitch: I('<path d="M3 17h4V8h5v7h4V6h5"/>'),
   ear: I('<path d="M6 8.5a6 6 0 1 1 12 0c0 3-2 4-3 5.5s-1 3.5-3.5 3.5A2.5 2.5 0 0 1 9 15"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0"/>'),
   gram: I('<path d="M4 6h16M4 12h10M4 18h7"/><circle cx="18" cy="16" r="3"/>'),
@@ -111,7 +113,7 @@ async function loadAll() {
   S.known = new Set(known || []); S.days = days || {}; S.thumbs = thumbs || {};
   S.ankiQ = new Set(ankiq || []); S.ankiDone = new Set(ankidone || []);
   S.vprog = vprog || {}; S.kstat = kstat || {}; S.daily = daily || {}; S.yearly = yearly || {}; S.estat = estat || {};
-  READMAP = null; ELIG_CACHE.clear(); POS_INDEX.clear(); // データが変わったので作り直す（必要になったときに）
+  READMAP = null; VOCAB_ALL = null; ELIG_CACHE.clear(); POS_INDEX.clear(); // データが変わったので作り直す（必要になったときに）
   applyTheme();
 }
 const saveSettings = () => dbPut('kv', S.settings, 'settings');
@@ -297,6 +299,8 @@ const accentCands = l => l.tk.map((t, i) => [t, i]).filter(([t]) => {
   const v = vocabOf(l, t), n = moraeOf(t.r).length;
   return v && v.a != null && v.r === t.r && n >= 2 && n <= 6;
 });
+// 漢字の練習に使える言葉：辞書形のまま出てきた、漢字をふくむ言葉（読みと意味がわかるもの）
+const kanjiCands = l => l.tk.map((t, i) => [t, i]).filter(([t]) => CONTENT_P.includes(t.p) && t.s === t.b && t.r && moraeOf(t.r).length >= 2 && [...t.s].some(isKanji) && vocabOf(l, t)?.g?.length);
 const ELIG = {
   dictado: l => flatLen(l) >= 2 && flatLen(l) <= 40,
   hueco: l => blankCands(l).length > 0 && l.tk.filter(t => t.p !== 'sp' && t.p !== 'sym').length >= 2,
@@ -305,6 +309,7 @@ const ELIG = {
   gramatica: l => l.gr && l.gr.some(g => gQuiz(g[0])),
   shadowing: l => durOf(l) >= 0.8 && durOf(l) <= 12 && flatLen(l) >= 3,
   accent: l => accentCands(l).length > 0,
+  kanji: l => kanjiCands(l).length > 0,
 };
 function weightOf(l) {
   const p = S.prog[l.id]; if (!p) return 1.5;
@@ -361,6 +366,54 @@ function sheet(content) {
   const bg = h('div', { class: 'sheet-bg', onclick: e => { if (e.target === bg) bg.remove(); } }, h('div', { class: 'sheet' }, h('div', { class: 'grip' }), content));
   (document.fullscreenElement || document.body).append(bg); return bg;
 }
+// すべてのエピソードの言葉：言葉 → { v, n（出てきた回数）, eps（話数） }
+let VOCAB_ALL = null;
+function allVocab() {
+  if (VOCAB_ALL) return VOCAB_ALL;
+  VOCAB_ALL = new Map();
+  for (const [id, e] of Object.entries(S.eps)) for (const [b, v] of Object.entries(e.vocab || {})) {
+    const x = VOCAB_ALL.get(b); if (x) { x.n += v.n || 0; x.eps++; } else VOCAB_ALL.set(b, { v, n: v.n || 0, eps: 1 });
+  }
+  return VOCAB_ALL;
+}
+const isKanji = c => /[一-鿿々]/.test(c);
+const lineStatus = l => { const p = S.prog[l.id]; return !p ? ['まだ', ''] : p.ivl >= 7 ? ['覚えた', 'ok'] : p.due <= Date.now() ? ['復習', 'due'] : ['練習中', 'mid']; };
+// 例文の行：再生ボタン（その場でクリップ）＋文＋翻訳
+function exRow(x, hl, extra) {
+  const pb = h('button', { class: 'iconbtn play', 'aria-label': '再生', html: ICON.play });
+  pb.onclick = () => { const a = h('div'); pb.closest('.ex').after(a); a.append(playerEl(x)); pb.disabled = true; };
+  return h('div', { class: 'ex' }, pb, h('div', { style: 'flex:1;min-width:0' }, sentenceEl(x, { hl, tap: true }),
+    x.es ? h('div', { class: 'small muted', style: 'font-family:system-ui' }, x.es) : null, extra || null));
+}
+
+// ================= 漢字 =================
+// その漢字を使う、自分のエピソードに出てきた言葉（よく出る順）
+const wordsWithKanji = c => [...allVocab()].filter(([b, x]) => b.includes(c) && x.v.p !== 'pn').sort((a, b) => b[1].n - a[1].n);
+function kanjiChips(base) {
+  const ks = [...new Set(base)].filter(isKanji);
+  if (!ks.length) return null;
+  return h('div', { class: 'row', style: 'gap:6px;align-items:center;flex-wrap:wrap;margin:6px 0' }, h('span', { class: 'small muted' }, '漢字'),
+    ks.map(c => h('button', { class: 'kchip', onclick: () => kanjiSheet(c) }, c)));
+}
+async function kanjiSheet(c) {
+  document.querySelectorAll('.sheet-bg').forEach(x => x.remove());
+  const k = await dbGet('yomi', 'k:' + c).catch(() => null);
+  const ws = wordsWithKanji(c), known = ws.filter(([b]) => S.known.has(b)).length;
+  const st = (S.estat.kanji || {})[c];
+  const box = h('div', {},
+    h('div', { class: 'row', style: 'gap:16px;align-items:center' }, h('div', { class: 'kbig' }, c),
+      h('div', {}, k ? h('div', {}, (k[2] || []).join('、')) : h('div', { class: 'muted small' }, '漢字の辞書がありません（Yomitan の KANJIDIC を入れると出ます）'),
+        k ? h('div', { class: 'small muted', style: 'margin-top:4px' }, [k[0] && '音：' + k[0], k[1] && '訓：' + k[1], k[4] && k[4] + '画'].filter(Boolean).join('　')) : null)),
+    h('p', { class: 'small muted', style: 'margin:10px 0 4px' }, `この漢字を使う言葉：${ws.length}（覚えた ${known}）` + (st ? `　・　漢字の練習 ${st.ok}/${st.ok + st.bad}` : '')));
+  const list = h('div');
+  for (const [b, x] of ws.slice(0, 40)) list.append(h('div', { class: 'vrow', onclick: () => { document.querySelectorAll('.sheet-bg').forEach(y => y.remove()); wordSheetBase(b, null, null); } },
+    h('div', { class: 'vmain' }, h('div', {}, h('span', { class: 'vw', html: [...b].map(ch => ch === c ? `<mark>${esc(ch)}</mark>` : esc(ch)).join('') }), ' ', h('span', { class: 'vr' }, x.v.r || '')),
+      h('div', { class: 'vg' }, (x.v.g || [])[0] || x.v.ja || '')),
+    h('span', { class: 'cnt' }, (S.known.has(b) ? '✓ ' : '') + x.n + '回')));
+  box.append(list);
+  sheet(box);
+}
+
 function vocabEntry(base) { for (const e of Object.values(S.eps)) if (e.vocab && e.vocab[base]) return e.vocab[base]; return null; }
 // ================= ピッチアクセント（UniDic の東京式アクセント） =================
 // a = 0：平板、a = n：n拍目のあとで下がる
@@ -407,6 +460,7 @@ function wordSheetBase(base, t, l) {
     h('div', { class: 'row', style: 'justify-content:space-between;align-items:flex-start' }, h('div', { class: 'hw' }, base), kb),
     h('div', { class: 'rd' }, ['読み：' + ((v && v.r) || (t && t.r) || '―'), POS_JA[p] || ''].filter(Boolean).join('　・　')),
     v && v.a != null && v.r ? pitchRow(v.r, v.a, v.aa) : null,
+    p !== 'pn' ? kanjiChips(base) : null,
     t && t.b && t.b !== t.s ? h('div', { class: 'small muted' }, `この文では「${t.s}」`) : null,
     v && v.g && v.g.length ? h('ol', { class: 'jmg' }, v.g.map(g => h('li', {}, g))) :
       h('p', { class: 'muted jmg' }, p === 'pn' ? '人や場所などの名前です。' : p === 'prt' || p === 'aux' ? '文法の言葉です。文の「文法」ボタンで説明を見られます。' : '辞書にのっていません。'),
@@ -651,6 +705,7 @@ const MODES = [
   ['gramatica', '文法', 'この表現の意味は？', ICON.gram, 6],
   ['shadowing', 'シャドーイング', 'まねして話して、採点', ICON.mic, 7],
   ['accent', 'アクセント', '高い・低いを聞き分けよう', ICON.pitch, 3],
+  ['kanji', '漢字', '読み方と書き方', ICON.kanji, 8],
 ];
 const TOOLS = [
   ['lector', '読む', 'エピソードを一行ずつ', ICON.book, 8],
@@ -670,7 +725,9 @@ function sectionTabs() {
 function viewHome() {
   const root = app(); root.innerHTML = '';
   const book = SEC() === 'book';
-  root.append(topbar('<span class="brand">耳から</span>日本語', { right: h('button', { class: 'iconbtn', 'aria-label': '設定', html: ICON.gear, onclick: () => go('settings') }) }));
+  root.append(topbar('<span class="brand">耳から</span>日本語', { right: h('div', { class: 'row', style: 'gap:2px' },
+    h('button', { class: 'iconbtn', 'aria-label': '検索', html: ICON.search, onclick: () => go('search') }),
+    h('button', { class: 'iconbtn', 'aria-label': '設定', html: ICON.gear, onclick: () => go('settings') })) }));
   const w = h('div', { class: 'wrap' }); root.append(w);
   w.append(sectionTabs());
   const lines = secLines(), ids = secEpIds();
@@ -740,9 +797,9 @@ function viewHome() {
   const m = h('div', { class: 'modes' });
   const tango = ['tango', '単語カード', `まだ覚えていない言葉を復習（今日 ${wordsDue()} 語）`, ICON.cards, 8];
   const watch = ['listen', 'エピソードを通して見る', '動画を見ながら、字幕が言葉ごとに色づく', ICON.eye, 5];
-  const modes = book ? [MODES[0], ['listen', '章リスニング', '章を最初から聞きながら、文字を追いかける', ICON.headphones, 6], ...MODES.slice(1), tango] : [...MODES, tango, watch];
+  const modes = book ? [MODES[0], ['listen', '章リスニング', '章を最初から聞きながら、文字を追いかける', ICON.headphones, 6], ...MODES.slice(1), tango] : [...MODES, watch, tango];
   for (const [id, t, d, ic, c] of modes) {
-    const wide = id === 'mezcla' || id === 'listen';
+    const wide = id === 'mezcla' || id === 'listen' || id === 'tango';
     const el = h('button', { class: 'mode' + (id === 'mezcla' ? ' primary' : wide ? ' wide' : ''), style: `--c:var(--t${c});--cs:var(--t${c}s)`, onclick: () => id === 'listen' ? go('listen') : id === 'tango' ? go('wordquiz') : startRound(id) },
       h('span', { class: 'ic', html: ic }), h('span', { class: 'tx' }, h('span', { class: 't' }, t), h('span', { class: 'd' }, d)));
     if (!wide) { el.append(...el.querySelector('.tx').childNodes); el.querySelector('.tx').remove(); }
@@ -817,7 +874,7 @@ function viewSettings() {
 }
 
 // ================= アプリの更新 =================
-const APP_VERSION = 20; // sw.js の CACHE（animejp-v20）と同じ番号にする
+const APP_VERSION = 21; // sw.js の CACHE（animejp-v21）と同じ番号にする
 async function latestVersion() {
   const txt = await fetch('sw.js?nc=' + Date.now(), { cache: 'no-store' }).then(r => r.text());
   const m = txt.match(/animejp-v(\d+)/); return m ? +m[1] : 0;
@@ -945,12 +1002,12 @@ function confirmInline(list, ep) {
 
 // ================= ラウンド =================
 let ROUND = null;
-const KINDS = ['dictado', 'hueco', 'ordenar', 'oido', 'gramatica', 'shadowing', 'accent'];
-const KIND_NAME = { dictado: '書き取り', hueco: '穴埋め', ordenar: '並べ替え', oido: '聞き取り', gramatica: '文法', shadowing: 'シャドーイング', accent: 'アクセント' };
+const KINDS = ['dictado', 'hueco', 'ordenar', 'oido', 'gramatica', 'shadowing', 'accent', 'kanji'];
+const KIND_NAME = { dictado: '書き取り', hueco: '穴埋め', ordenar: '並べ替え', oido: '聞き取り', gramatica: '文法', shadowing: 'シャドーイング', accent: 'アクセント', kanji: '漢字' };
 function startRound(mode) { ROUND = { mode, i: 0, n: S.settings.roundLen, ok: 0, done: 0, used: new Set(), log: [] }; nextItem(); }
 function nextItem() {
   if (ROUND.i >= ROUND.n) return go('summary');
-  let kind = ROUND.mode === 'mezcla' ? pick(['dictado', 'dictado', 'hueco', 'ordenar', 'oido', 'gramatica', 'gramatica', 'shadowing', 'accent']) : ROUND.mode;
+  let kind = ROUND.mode === 'mezcla' ? pick(['dictado', 'dictado', 'hueco', 'ordenar', 'oido', 'gramatica', 'gramatica', 'shadowing', 'accent', 'kanji']) : ROUND.mode;
   let line = pickLine(kind, ROUND.used);
   if (!line && ROUND.mode === 'mezcla') for (const k of shuffle(KINDS)) { line = pickLine(k, ROUND.used); if (line) { kind = k; break; } }
   if (!line) { if (!ROUND.i) { toast('今の条件では、この練習に使える文がありません。'); return go('home'); } return go('summary'); }
@@ -992,7 +1049,7 @@ function soundAlikes(k, kata) {
   m.forEach((x, i) => {
     const v = vowelOf(x), nx = m[i + 1];
     if (x === 'っ') put('sokuon', i, 1);
-    else if (i > 0 && 'かきくけこさしすせそたちつてとぱぴぷぺぽ'.includes(x[0]) && !'っんー'.includes(m[i - 1])) put('sokuon', i, 0, 'っ');
+    else if (i > 0 && 'かきくけこさしすせそたちつてとぱぴぷぺぽ'.includes(x[0]) && !'っんー'.includes(m[i - 1]) && !(i > 1 && (m[i - 1] === LONG_OF[vowelOf(m[i - 2])] || m[i - 1] === LONG_ALT[vowelOf(m[i - 2])]))) put('sokuon', i, 0, 'っ');
     if (v && x !== 'っ') {
       if (nx === 'ー' || nx === LONG_OF[v] || nx === LONG_ALT[v]) put('long', i + 1, 1);
       // のばす音を足すのは、語の途中で、っ・ん の前でなく、すでにのばした音でもないとき
@@ -1187,6 +1244,49 @@ const EX = {
   },
 
   shadowing(l, w) { shadowingUI(l, w, true); },
+
+  kanji(l, w) {
+    let cands = shuffle(kanjiCands(l));
+    const unk = cands.filter(([t]) => !S.known.has(t.b)); if (unk.length) cands = unk;
+    const [t, ti] = cands[0], v = vocabOf(l, t), write = Math.random() < 0.5;
+    const V = [...allVocab()].filter(([b, x]) => b !== t.b && x.v.r && x.v.p !== 'pn' && [...b].some(isKanji));
+    const shares = V.filter(([b]) => [...b].some(c => isKanji(c) && t.b.includes(c)));
+    const n = moraeOf(t.r).length, near = x => Math.abs(moraeOf(x.v.r).length - n) <= 1;
+    const opts = [write ? t.s : t.r];
+    const add = x => { if (x && !opts.includes(x) && opts.length < 4) opts.push(x); };
+    if (write) {
+      // 書き：同じ読みの別の言葉 → 同じ漢字をふくむ言葉 → 長さの近い言葉
+      V.filter(([, x]) => x.v.r === t.r).forEach(([b]) => add(b));
+      shuffle(shares.filter(([b]) => Math.abs(b.length - t.s.length) <= 1)).forEach(([b]) => add(b));
+      shuffle(V.filter(([b]) => b.length === t.s.length)).slice(0, 20).forEach(([b]) => add(b));
+    } else {
+      // 読み：少しだけちがう読み（っ・のばす音・゛…）→ 同じ漢字をふくむ言葉の読み → 長さの近い読み
+      const real = realKana();
+      shuffle(soundAlikes(t.r)).sort((a, b) => real.has(b[0]) - real.has(a[0])).slice(0, 2).forEach(([r]) => add(r));
+      shuffle(shares.filter(([, x]) => near(x))).forEach(([, x]) => add(x.v.r));
+      shuffle(V.filter(([, x]) => near(x))).slice(0, 20).forEach(([, x]) => add(x.v.r));
+    }
+    const ans = opts[0], order = shuffle(opts);
+    w.append(playerEl(l));
+    w.append(h('div', { class: 'qtitle' }, write ? `「${t.r}」を漢字で書くと？` : `「${t.s}」の読み方は？`));
+    const sc = h('div', { class: 'card' }, write ? sentenceEl(l, { blank: ti, blankText: t.r, tap: false }) : sentenceEl(l, { hl: [ti, ti], tap: false }),
+      h('div', { class: 'small muted', style: 'margin-top:6px' }, v.g[0]));
+    w.append(sc);
+    const box = h('div', { class: 'opts' });
+    for (const o of order) box.append(h('button', { class: 'opt big', onclick: e => {
+      const ok = o === ans;
+      box.querySelectorAll('.opt').forEach(b => { b.disabled = true; if (b.textContent === ans) b.classList.add('right'); });
+      if (!ok) e.currentTarget.classList.add('wrong');
+      finish(l, 'kanji', ok);
+      [...new Set(t.b)].filter(isKanji).forEach(c => logE('kanji', c, ok));
+      w.append(verdict(ok ? 'ok' : 'bad', ok ? '正解！' : `正解は「${ans}」`, sc));
+      w.append(h('div', { class: 'card' }, h('div', { class: 'row', style: 'gap:10px;align-items:baseline' }, h('b', { style: 'font-size:22px' }, t.s), h('span', { class: 'muted' }, t.r)),
+        h('div', { class: 'small', style: 'margin:4px 0' }, v.g.slice(0, 2).join('; ')), v.ja ? h('div', { class: 'small muted' }, v.ja) : null, kanjiChips(t.b)));
+      w.append(resultBlock(l, { hl: [ti, ti] })); nextBar(w);
+    } }, o));
+    w.append(box);
+    setBar(w, h('button', { class: 'btn ghost', onclick: () => [...box.children].find(b => b.textContent !== ans)?.click() }, 'わからない'));
+  },
 
   accent(l, w) {
     const cands = shuffle(accentCands(l));
@@ -2380,7 +2480,70 @@ function viewPassage(arg) {
   setBar(w, h('button', { class: 'btn primary', onclick: reveal }, '文字を見る'));
 }
 
-const VIEWS = { wrapped: viewWrapped, listen: viewListen, wordquiz: viewWordQuiz, wordsum: viewWordSummary, stats: viewStats, ankibox: viewAnkiBox, passage: viewPassage, home: viewHome, settings: viewSettings, reader: viewReader, vocab: viewVocab, summary: viewSummary, glist: viewGrammarList };
+// ================= 検索 =================
+function viewSearch(q) {
+  const root = app(); root.innerHTML = '';
+  root.append(topbar('検索', { back: true }));
+  const w = h('div', { class: 'wrap' }); root.append(w);
+  const inp = h('input', { type: 'search', class: 'searchbox', placeholder: '言葉・文・翻訳・文法・漢字', lang: 'ja', autocomplete: 'off', enterkeyhint: 'search' });
+  inp.value = q ?? S.settings.lastSearch ?? '';
+  const out = h('div');
+  w.append(inp, out);
+  let t = 0;
+  const run = () => { S.settings.lastSearch = inp.value; saveSettings(); out.replaceChildren(...searchResults(inp.value.trim())); };
+  inp.addEventListener('input', () => { clearTimeout(t); t = setTimeout(run, 250); });
+  run(); setTimeout(() => inp.focus(), 150);
+}
+function searchResults(q) {
+  if (!q) return [h('p', { class: 'muted', style: 'margin:16px 4px' }, '日本語（漢字・かな）でも、翻訳（スペイン語・英語）でも探せます。')];
+  const N = x => JA.kataToHira((x || '').toLowerCase().replace(/\s+/g, ''));
+  const nq = N(q), kanaQ = /^[ぁ-ゖー]+$/.test(nq), out = [];
+  // 言葉
+  const words = [...allVocab()].filter(([b, x]) => N(b).includes(nq) || (kanaQ && N(x.v.r).includes(nq)) || (q.length >= 3 && (x.v.g || []).some(g => g.toLowerCase().includes(q.toLowerCase()))) || (x.v.ja || '').includes(q))
+    .sort((a, b) => (b[0] === q) - (a[0] === q) || (N(b[1].v.r) === nq) - (N(a[1].v.r) === nq) || b[0].startsWith(q) - a[0].startsWith(q) || b[1].n - a[1].n);
+  // 文（日本語・読み・翻訳）
+  const lines = S.lines.filter(l => N(l.t).includes(nq) || (kanaQ && N(lineKana(l)).includes(nq)) || (q.length >= 3 && (l.es || '').toLowerCase().includes(q.toLowerCase())));
+  // ちょうど一つの言葉なら、まとめ
+  const exact = allVocab().get(q);
+  if (exact) {
+    const ls = S.lines.filter(l => l.tk.some(t => t.b === q)), st = ls.map(lineStatus);
+    const c = k => st.filter(x => x[0] === k).length;
+    out.push(h('div', { class: 'card sumcard', onclick: () => wordSheetBase(q, null, null) },
+      h('div', { class: 'row', style: 'gap:10px;align-items:baseline' }, h('b', { style: 'font-size:24px' }, q), h('span', { class: 'muted' }, exact.v.r || ''), S.known.has(q) ? h('span', { class: 'tag ok' }, '覚えた') : null),
+      h('div', { class: 'small', style: 'margin-top:6px' }, `${exact.n}回・${exact.eps}話・${ls.length}文`),
+      h('div', { class: 'small muted' }, `覚えた文 ${c('覚えた')}・練習中 ${c('練習中')}・復習 ${c('復習')}・まだ ${c('まだ')}`)));
+  }
+  const ks = [...new Set(q)].filter(isKanji);
+  if (ks.length) out.push(h('div', { class: 'section-title' }, '漢字'), h('div', { class: 'row', style: 'gap:8px;flex-wrap:wrap' },
+    ks.map(c => h('button', { class: 'kchip big', onclick: () => kanjiSheet(c) }, c, h('small', {}, `${wordsWithKanji(c).length}語`)))));
+  if (words.length) {
+    out.push(h('div', { class: 'section-title' }, `言葉（${words.length}）`));
+    const box = h('div', { class: 'card' });
+    const more = n => { box.replaceChildren(...words.slice(0, n).map(([b, x]) => h('div', { class: 'vrow', onclick: () => wordSheetBase(b, null, null) },
+      h('div', { class: 'vmain' }, h('div', {}, h('span', { class: 'vw' }, b), ' ', h('span', { class: 'vr' }, x.v.r || '')), h('div', { class: 'vg' }, (x.v.g || [])[0] || x.v.ja || '')),
+      h('span', { class: 'cnt' }, (S.known.has(b) ? '✓ ' : '') + x.n + '回')))); if (words.length > n) box.append(h('button', { class: 'btn sm ghost', onclick: () => more(n + 30) }, `もっと見る（${words.length - n}）`)); };
+    more(12); out.push(box);
+  }
+  if (lines.length) {
+    out.push(h('div', { class: 'section-title' }, `文（${lines.length}）`));
+    const box = h('div', { class: 'card' });
+    const more = n => { box.replaceChildren(...lines.slice(0, n).map(l => { const [st, cls] = lineStatus(l); const i = l.tk.findIndex(t => t.b === q || t.s === q);
+      return exRow(l, i >= 0 ? [i, i] : null, h('div', { class: 'small muted' }, `${epLabel(l.ep)}・${fmtTime(l.st)}　`, h('span', { class: 'tag ' + cls }, st))); }));
+      if (lines.length > n) box.append(h('button', { class: 'btn sm ghost', onclick: () => more(n + 20) }, `もっと見る（${lines.length - n}）`)); };
+    more(15); out.push(box);
+  }
+  const gs = Object.entries(S.grammar).filter(([, g]) => (g[0] || '').includes(q) || (q.length >= 3 && (g[1] || '').toLowerCase().includes(q.toLowerCase())));
+  if (gs.length) {
+    out.push(h('div', { class: 'section-title' }, `文法（${gs.length}）`));
+    out.push(h('div', { class: 'card' }, gs.slice(0, 20).map(([id, g]) => h('div', { class: 'vrow', onclick: () => grammarSheet(id) },
+      lvBadge(g[3]), h('div', { class: 'vmain' }, h('div', { class: 'vw', style: 'font-size:16px' }, g[0]), h('div', { class: 'vg' }, g[1])),
+      h('span', { class: 'cnt' }, `${linesWithGrammar(id).length}文`)))));
+  }
+  if (out.length === (exact ? 1 : 0) + (ks.length ? 2 : 0) && !words.length && !lines.length && !gs.length) out.push(h('p', { class: 'muted', style: 'margin:16px 4px' }, '見つかりませんでした。'));
+  return out;
+}
+
+const VIEWS = { search: viewSearch, wrapped: viewWrapped, listen: viewListen, wordquiz: viewWordQuiz, wordsum: viewWordSummary, stats: viewStats, ankibox: viewAnkiBox, passage: viewPassage, home: viewHome, settings: viewSettings, reader: viewReader, vocab: viewVocab, summary: viewSummary, glist: viewGrammarList };
 
 // ================= 起動 =================
 (async () => {
