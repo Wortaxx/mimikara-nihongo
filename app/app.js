@@ -555,17 +555,39 @@ async function clipUrl(id) {
   if (urlCache.size > 40) { const [k, v] = urlCache.entries().next().value; URL.revokeObjectURL(v); urlCache.delete(k); }
   return u;
 }
+// ================= 再生速度 =================
+// 自動：まだ聞き取れていない文は 0.75、一度できた文は 0.85、覚えた文は 1.0（間隔反復の記録から）
+const RATES = [0.5, 0.65, 0.75, 0.85, 1, 1.1, 1.25];
+function rateFor(l) {
+  const r = S.settings.rate;
+  if (r !== 'auto') return +r || 1;
+  const p = l && S.prog[l.id];
+  if (!l) return 1;
+  if (!p || p.ok === 0 || p.ivl < 1) return 0.75;
+  return p.ivl < 7 ? 0.85 : 1;
+}
+const rateText = () => S.settings.rate === 'auto' ? '自動' : `${+S.settings.rate || 1}×`;
+function rateChip(onChange, cls = 'chip') {
+  const lab = h('span', {}, rateText());
+  const sel = h('select', { 'aria-label': '再生速度', onchange: () => {
+    S.settings.rate = sel.value === 'auto' ? 'auto' : +sel.value; saveSettings();
+    lab.textContent = rateText(); box.classList.toggle('on', S.settings.rate !== 1); onChange && onChange();
+  } }, RATES.map(r => h('option', { value: r, selected: S.settings.rate === r }, `${r}×${r === 1 ? '（ふつう）' : r < 1 ? '（ゆっくり）' : '（はやい）'}`)),
+    h('option', { value: 'auto', selected: S.settings.rate === 'auto' }, '自動（覚えるほど速く）'));
+  const box = h('label', { class: cls + ' ratesel' + (S.settings.rate !== 1 ? ' on' : '') }, h('span', { html: ICON.slow }), lab, sel);
+  return box;
+}
+
 function playerEl(l, { autoplay = true, onended = null } = {}) {
   const vid = h('video', { playsinline: true, preload: 'auto' });
   const ld = h('div', { class: 'ld', html: '<span class="spinner"></span>' });
   if (S.thumbs[l.ep]) ld.style.backgroundImage = `linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,.35)),url(${S.thumbs[l.ep]})`;
   const book = isBook(l);
   const wrap = h('div', { class: 'player' + (book ? ' audio-only book' : S.settings.video ? '' : ' audio-only') }, vid, ld, h('div', { class: 'aud', html: ICON.headphones + `<span>${book ? esc(epLabel(l.ep)) : '音声のみ'}</span>` }));
-  const rateBtn = h('button', { class: 'btn' + (S.settings.rate < 1 ? ' on' : ''), html: ICON.slow + '<span>ゆっくり</span>' });
+  const rateBtn = rateChip(() => play(), 'btn');
   const vidBtn = h('button', { class: 'btn' + (S.settings.video ? ' on' : ''), html: ICON.eye + '<span>映像</span>' });
-  const play = async () => { vid.playbackRate = S.settings.rate; vid.currentTime = 0; logPlay(l); try { await vid.play(); } catch (e) { } };
+  const play = async () => { vid.playbackRate = rateFor(l); vid.currentTime = 0; logPlay(l); try { await vid.play(); } catch (e) { } };
   const replay = h('button', { class: 'btn', html: ICON.replay + '<span>もう一度</span>', onclick: play });
-  rateBtn.onclick = () => { S.settings.rate = S.settings.rate < 1 ? 1 : 0.75; rateBtn.classList.toggle('on', S.settings.rate < 1); saveSettings(); play(); };
   vidBtn.onclick = () => { S.settings.video = !S.settings.video; vidBtn.classList.toggle('on', S.settings.video); wrap.classList.toggle('audio-only', !S.settings.video || book); saveSettings(); };
   wrap.addEventListener('click', play);
   if (onended) vid.addEventListener('ended', onended);
@@ -788,7 +810,7 @@ function viewSettings() {
 }
 
 // ================= アプリの更新 =================
-const APP_VERSION = 18; // sw.js の CACHE（animejp-v18）と同じ番号にする
+const APP_VERSION = 19; // sw.js の CACHE（animejp-v19）と同じ番号にする
 async function latestVersion() {
   const txt = await fetch('sw.js?nc=' + Date.now(), { cache: 'no-store' }).then(r => r.text());
   const m = txt.match(/animejp-v(\d+)/); return m ? +m[1] : 0;
@@ -1247,7 +1269,7 @@ function shadowingUI(l, w, inRound) {
     mr.start();
     recBtn.classList.add('pulse'); recBtn.innerHTML = ICON.stop + '<span>ストップ</span>';
     status.textContent = withMode ? 'キャラクターといっしょに話して…' : 'あなたの番！話したら「ストップ」。';
-    timer = setTimeout(stopRecording, (dur / (withMode ? S.settings.rate : 1) + (withMode ? 1.5 : 4)) * 1000 + 1500);
+    timer = setTimeout(stopRecording, (dur / (withMode ? rateFor(l) : 1) + (withMode ? 1.5 : 4)) * 1000 + 1500);
   };
 }
 const scoreColor = v => v >= 80 ? 'var(--ok)' : v >= 60 ? 'var(--warn)' : 'var(--bad)';
@@ -1972,7 +1994,7 @@ function seqPlayer({ onLine, onEnd, media } = {}) { // media: 動画で再生す
     idx = i; playing = true; onLine && onLine(list[i], i); logPlay(list[i]);
     const u = await clipUrl(list[i].id); if (my !== token) return;
     if (!u) return playAt(i + 1);
-    a.src = u; a.playbackRate = S.settings.rate; a.preservesPitch = true;
+    a.src = u; a.playbackRate = rateFor(list[i]); a.preservesPitch = true;
     try { await a.play(); } catch (e) { }
   };
   a.onended = () => { if (playing) playAt(idx + 1); };
@@ -1997,7 +2019,7 @@ function viewBookReader(epId) {
   root.append(topbar('読む', { back: true }));
   const w = h('div', { class: 'wrap has-bar' }); root.append(w);
   const sel = h('select', { onchange: () => go('reader', sel.value) }, eps.map(e => h('option', { value: e, selected: e === epId }, epLabel(e))));
-  const rateBtn = h('button', { class: 'chip' + (S.settings.rate < 1 ? ' on' : ''), onclick: () => { S.settings.rate = S.settings.rate < 1 ? 1 : 0.75; rateBtn.classList.toggle('on', S.settings.rate < 1); saveSettings(); } }, 'ゆっくり');
+  const rateBtn = rateChip();
   let hide = false;
   const hideBtn = h('button', { class: 'chip', onclick: () => { hide = !hide; hideBtn.classList.toggle('on', hide); w.classList.toggle('hidetext', hide); } }, '文字をかくす');
   w.append(h('div', { class: 'row', style: 'margin-bottom:6px' }, sel, rateBtn, hideBtn),
@@ -2055,8 +2077,8 @@ function fullPlayer(v, lines, url, { onLine, onEnd } = {}) {
   v.addEventListener('ended', () => { playing = false; onEnd && onEnd(); });
   const api = {
     load() { },
-    play(i = 0) { v.currentTime = Math.max(0, lines[i].st / 1000 - 0.3); idx = -1; playing = true; v.playbackRate = S.settings.rate; v.play().catch(() => { }); check(); },
-    resume() { playing = true; v.playbackRate = S.settings.rate; v.play().catch(() => { }); },
+    play(i = 0) { v.currentTime = Math.max(0, lines[i].st / 1000 - 0.3); idx = -1; playing = true; v.playbackRate = rateFor(null); v.play().catch(() => { }); check(); },
+    resume() { playing = true; v.playbackRate = rateFor(null); v.play().catch(() => { }); },
     seek(ms) { v.currentTime = Math.max(0, ms / 1000); idx = -1; check(); if (playing) v.play().catch(() => { }); },
     stop() { playing = false; v.pause(); },
     now: () => v.currentTime * 1000, check, full: true,
@@ -2144,7 +2166,7 @@ async function viewListen(arg) {
 
   // 上：選択・速さ・翻訳・先の文を見せるか・位置
   const sel = h('select', { onchange: () => go('listen', { ep: sel.value }) }, eps.map(e => h('option', { value: e, selected: e === epId }, `${S.eps[e].book ? S.eps[e].book + '・' : ''}${epLabel(e)}`)));
-  const rateBtn = h('button', { class: 'chip' + (S.settings.rate < 1 ? ' on' : ''), onclick: () => { S.settings.rate = S.settings.rate < 1 ? 1 : 0.75; rateBtn.classList.toggle('on', S.settings.rate < 1); sp.audio.playbackRate = S.settings.rate; saveSettings(); } }, 'ゆっくり');
+  const rateBtn = rateChip(() => { const l = lines[cur]; if (sp.audio) sp.audio.playbackRate = sp.full ? rateFor(null) : rateFor(l); });
   const aheadBtn = h('button', { class: 'chip' + (S.settings.listenAhead ? ' on' : ''), onclick: () => { S.settings.listenAhead = !S.settings.listenAhead; aheadBtn.classList.toggle('on', S.settings.listenAhead); w.classList.toggle('ahead', S.settings.listenAhead); saveSettings(); } }, '先の文も表示');
   w.classList.toggle('ahead', !!S.settings.listenAhead);
   const trBtn = book ? null : h('button', { class: 'chip' + (S.settings.watchTr ? ' on' : ''), onclick: () => { S.settings.watchTr = !S.settings.watchTr; trBtn.classList.toggle('on', S.settings.watchTr); w.classList.toggle('tr', S.settings.watchTr); saveSettings(); if (cur >= 0) setSub(cur); } }, '翻訳');
@@ -2296,7 +2318,7 @@ function viewPassage(arg) {
   const status = h('div', { class: 'listen-status' });
   const dots = h('div', { class: 'dots' }, lines.map(() => h('i')));
   const bigBtn = h('button', { class: 'bigplay', 'aria-label': '再生' });
-  const rateBtn = h('button', { class: 'chip' + (S.settings.rate < 1 ? ' on' : ''), onclick: () => { S.settings.rate = S.settings.rate < 1 ? 1 : 0.75; rateBtn.classList.toggle('on', S.settings.rate < 1); saveSettings(); } }, 'ゆっくり');
+  const rateBtn = rateChip();
   w.append(h('div', { class: 'card', style: 'text-align:center' }, bigBtn, status, dots, h('div', { class: 'chips', style: 'justify-content:center;margin-top:10px' }, rateBtn),
     h('p', { class: 'small muted', style: 'margin:10px 0 0' }, 'まず文字を見ないで最後まで聞いてみよう。何回聞いてもOK。')));
   const textBox = h('div');
