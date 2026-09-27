@@ -434,3 +434,14 @@ select{-webkit-appearance:none;appearance:none;padding-right:34px;background-ima
 .deepsteps .ds.done{color:var(--accent)}
 .deepsteps .ds.on{background:var(--accent);color:var(--accent-ink);font-weight:700}
 .deepsec{scroll-margin-top:70px;margin-top:10px}
+/* 今日の弱点 */
+.weakcard{border-color:var(--warn)}
+.wchip{font-size:13px;padding:3px 10px;border-radius:12px;background:var(--warn-soft);color:var(--warn)}
+/* スキルと言葉の段階 */
+.funnel{display:grid;gap:8px}
+.frow{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) auto;gap:10px;align-items:center}
+.frow .fl{display:flex;flex-direction:column;min-width:0}
+.frow .fl small{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fbar{height:10px;border-radius:6px;background:var(--surface2);overflow:hidden}
+.fbar i{display:block;height:100%;background:var(--t4);border-radius:6px}
+.fv{font-variant-numeric:tabular-nums;font-weight:700;min-width:3ch;text-align:right}

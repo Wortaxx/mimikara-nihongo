@@ -248,6 +248,7 @@ const DAY = 864e5;
 function grade(line, ok, kind) {
   const p = S.prog[line.id] || { id: line.id, seen: 0, ok: 0, fail: 0, ivl: 0, due: 0, kinds: {} };
   p.seen++; p.last = Date.now(); p.kinds[kind] = (p.kinds[kind] || 0) + 1;
+  if (ok === true) { p.okk = p.okk || {}; p.okk[kind] = (p.okk[kind] || 0) + 1; }   // どの練習で正解したか（スキルの記録用）
   if (ok === true) { p.ok++; p.ivl = p.ivl ? Math.min(p.ivl * 2.5, 120) : 1; p.due = Date.now() + p.ivl * DAY; }
   else if (ok === false) { p.fail++; p.ivl = 0; p.due = Date.now() + 10 * 60e3; }
   else { p.ivl = Math.max(0.5, p.ivl); p.due = Date.now() + p.ivl * DAY; }
@@ -261,13 +262,75 @@ function countPractice(kind, ok, line) {
   const k = S.kstat[kind] || (S.kstat[kind] = { ok: 0, mid: 0, bad: 0 });
   k[ok === true ? 'ok' : ok === false ? 'bad' : 'mid']++; dbPut('kv', S.kstat, 'kstat');
 }
-// 何を聞き分けられて、何をまちがえるか：snd＝音の種類、pitch＝アクセントの型（ほかの分類もここに足す）
+// 何ができて、何をまちがえるか：snd＝音の種類、pitch＝アクセントの型、word＝言葉、gram＝文法、kanji＝漢字
 function logE(cat, key, ok) {
   const c = S.estat[cat] || (S.estat[cat] = {}), e = c[key] || (c[key] = { ok: 0, bad: 0 });
   e[ok ? 'ok' : 'bad']++; e.last = Date.now();
-  dbPut('kv', S.estat, 'estat');
+  clearTimeout(logE.t); logE.t = setTimeout(() => dbPut('kv', S.estat, 'estat'), 300);
 }
 const SND_NAME = { sokuon: 'っ（促音）', long: 'のばす音（長音）', dakuten: '゛（濁音）', yoon: 'ゃゅょ（拗音）', n: 'ん（撥音）' };
+// ================= 今日の弱点 =================
+// まちがいの記録から：苦手な音・アクセントの型・文法・言葉・文（最近のものを少し重く）
+function weakPoints() {
+  const E = S.estat, n = e => e.ok + e.bad, acc = e => e.ok / Math.max(1, n(e)), now = Date.now();
+  const score = e => e.bad * 2 - e.ok + (now - (e.last || 0) < 7 * DAY ? 1 : 0);
+  const secIds = new Set(secEpIds());
+  const snd = Object.entries(E.snd || {}).filter(([, e]) => n(e) >= 3 && acc(e) < 0.8).sort((a, b) => acc(a[1]) - acc(b[1])).map(([k, e]) => [k, acc(e)]);
+  const pitch = Object.entries(E.pitch || {}).filter(([, e]) => n(e) >= 3 && acc(e) < 0.75).sort((a, b) => acc(a[1]) - acc(b[1])).map(([k, e]) => [k, acc(e)]);
+  const gram = Object.entries(E.gram || {}).filter(([id, e]) => e.bad > 0 && acc(e) < 0.8 && S.grammar[id]).sort((a, b) => score(b[1]) - score(a[1])).map(([k]) => k).slice(0, 5);
+  const ws = new Map();
+  for (const [b, e] of Object.entries(E.word || {})) if (e.bad > 0 && acc(e) < 0.8 && !S.known.has(b)) ws.set(b, score(e));
+  for (const [b, p] of Object.entries(S.vprog)) if (p.fail > 0 && p.ivl < 3 && !S.known.has(b)) ws.set(b, Math.max(ws.get(b) || -99, p.fail * 2 - p.ok));
+  const words = [...ws].sort((a, b) => b[1] - a[1]).map(([b]) => b).filter(b => allVocab().has(b)).slice(0, 12);
+  const byId = new Map(S.lines.map(l => [l.id, l]));
+  const lines = Object.values(S.prog).filter(p => p.fail > 0 && p.ivl < 3).sort((a, b) => (b.fail - b.ok) - (a.fail - a.ok) || (b.last || 0) - (a.last || 0))
+    .map(p => byId.get(p.id)).filter(l => l && secIds.has(l.ep)).slice(0, 20);
+  return { snd, pitch, gram, words, lines };
+}
+function weakPlan() {
+  const W = weakPoints(), plan = [], used = new Set(), P = shuffle(pool().length ? pool() : secLines());
+  const add = (kind, line, target) => { if (line && !used.has(line.id)) { used.add(line.id); plan.push({ kind, line, target }); return true; } return false; };
+  const count = f => plan.filter(f).length;
+  for (const b of W.words) {                               // 言葉：穴埋めか漢字
+    if (count(x => x.target && x.target.word && x.kind !== 'accent') >= 5) break;
+    const l = P.find(l => !used.has(l.id) && (blankCands(l).some(([t]) => t.b === b) || kanjiCands(l).some(([t]) => t.b === b)));
+    if (l) add(blankCands(l).some(([t]) => t.b === b) ? 'hueco' : 'kanji', l, { word: b });
+  }
+  for (const g of W.gram) {                                // 文法
+    if (count(x => x.kind === 'gramatica') >= 3) break;
+    if (gQuiz(g)) add('gramatica', P.find(l => !used.has(l.id) && l.gr && l.gr.some(x => x[0] === g)), { gram: g });
+  }
+  if (W.snd.length) {                                      // 音：その種類の音を変えられる文
+    const has = (l, typ) => l.tk.some(t => CONTENT_P.includes(t.p) && t.r && moraeOf(t.r).length >= 2 && soundAlikes(t.r).some(([, y]) => y === typ));
+    for (let k = 0; k < 4; k++) { const typ = W.snd[k % W.snd.length][0]; add('oido', P.slice(0, 400).find(l => !used.has(l.id) && ELIG.oido(l) && has(l, typ)), { snd: typ }); }
+  }
+  if (W.pitch.length) {                                    // アクセントの型
+    const pn = W.pitch[0][0];
+    for (let k = 0; k < 2; k++) {
+      const l = P.find(l => !used.has(l.id) && accentCands(l).some(([t]) => pitchName(vocabOf(l, t).a, moraeOf(t.r).length) === pn));
+      if (l) add('accent', l, { word: accentCands(l).find(([t]) => pitchName(vocabOf(l, t).a, moraeOf(t.r).length) === pn)[0].b });
+    }
+  }
+  for (const l of W.lines) { if (count(x => x.kind === 'shadowing') >= 3) break; if (ELIG.shadowing(l)) add('shadowing', l); }
+  for (const l of W.lines) { if (plan.length >= 12) break; if (ELIG.dictado(l)) add('dictado', l); }
+  return { plan: shuffle(plan), W };
+}
+function startWeak() {
+  const { plan } = weakPlan();
+  if (!plan.length) { toast('まだ弱点の記録がありません。いろいろな練習をすると、ここに出てきます。', 4000); return go('home'); }
+  ROUND = { mode: 'weak', i: 0, n: plan.length, ok: 0, done: 0, used: new Set(), log: [], plan };
+  nextItem();
+}
+function weakCard() {
+  const W = weakPoints();
+  const chips = [...W.snd.slice(0, 2).map(([k, a]) => `${SND_NAME[k]} ${Math.round(a * 100)}%`), ...W.pitch.slice(0, 1).map(([k, a]) => `${k} ${Math.round(a * 100)}%`),
+    ...W.gram.slice(0, 2).map(g => S.grammar[g][0]), W.words.length ? `言葉 ${W.words.length}` : null, W.lines.length ? `苦手な文 ${W.lines.length}` : null].filter(Boolean);
+  if (!chips.length) return null;
+  return h('div', { class: 'card weakcard' },
+    h('div', { class: 'row', style: 'justify-content:space-between;align-items:center;gap:8px' }, h('b', {}, '今日の弱点'), h('span', { class: 'small muted' }, 'まちがいの記録から')),
+    h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap;margin:8px 0 10px' }, chips.map(c => h('span', { class: 'wchip' }, c))),
+    h('button', { class: 'btn primary', style: 'width:100%', onclick: () => startRound('weak') }, '弱点を練習する'));
+}
 function streak() {
   let n = 0; const d = new Date();
   if (!S.days[today()]) d.setDate(d.getDate() - 1);
@@ -798,6 +861,8 @@ function viewHome() {
   drawLv(); drawCount();
   w.append(h('div', { class: 'section-title' }, 'むずかしさ'), lvChips);
   // 練習
+  const wc = S.lines.length ? weakCard() : null;
+  if (wc) w.append(wc);
   w.append(h('div', { class: 'section-title' }, '練習'));
   const m = h('div', { class: 'modes' });
   const tango = ['tango', '単語カード', `まだ覚えていない言葉を復習（今日 ${wordsDue()} 語）`, ICON.cards, 8];
@@ -879,7 +944,7 @@ function viewSettings() {
 }
 
 // ================= アプリの更新 =================
-const APP_VERSION = 22; // sw.js の CACHE（animejp-v22）と同じ番号にする
+const APP_VERSION = 23; // sw.js の CACHE（animejp-v23）と同じ番号にする
 async function latestVersion() {
   const txt = await fetch('sw.js?nc=' + Date.now(), { cache: 'no-store' }).then(r => r.text());
   const m = txt.match(/animejp-v(\d+)/); return m ? +m[1] : 0;
@@ -1008,10 +1073,17 @@ function confirmInline(list, ep) {
 // ================= ラウンド =================
 let ROUND = null;
 const KINDS = ['dictado', 'hueco', 'ordenar', 'oido', 'gramatica', 'shadowing', 'accent', 'kanji'];
-const KIND_NAME = { dictado: '書き取り', hueco: '穴埋め', ordenar: '並べ替え', oido: '聞き取り', gramatica: '文法', shadowing: 'シャドーイング', accent: 'アクセント', kanji: '漢字', deep: 'じっくり聞く' };
-function startRound(mode) { ROUND = { mode, i: 0, n: mode === 'deep' ? 3 : S.settings.roundLen, ok: 0, done: 0, used: new Set(), log: [] }; nextItem(); }
+const KIND_NAME = { dictado: '書き取り', hueco: '穴埋め', ordenar: '並べ替え', oido: '聞き取り', gramatica: '文法', shadowing: 'シャドーイング', accent: 'アクセント', kanji: '漢字', deep: 'じっくり聞く', weak: '弱点' };
+function startRound(mode) {
+  if (mode === 'weak') return startWeak(); ROUND = { mode, i: 0, n: mode === 'deep' ? 3 : S.settings.roundLen, ok: 0, done: 0, used: new Set(), log: [] }; nextItem(); }
 function nextItem() {
   if (ROUND.i >= ROUND.n) return go('summary');
+  ROUND.target = null;
+  if (ROUND.plan) {   // 弱点の練習：先に決めた問題を順番に
+    const it = ROUND.plan[ROUND.i++]; ROUND.used.add(it.line.id); ROUND.target = it.target || null;
+    CLEANUP.forEach(f => { try { f(); } catch (e) { } }); CLEANUP = []; stopRecording(); window.scrollTo(0, 0);
+    return EX[it.kind](it.line, exShell(it.kind, it.line));
+  }
   let kind = ROUND.mode === 'mezcla' ? pick(['dictado', 'dictado', 'hueco', 'ordenar', 'oido', 'gramatica', 'gramatica', 'shadowing', 'accent', 'kanji']) : ROUND.mode;
   let line = pickLine(kind, ROUND.used);
   if (!line && ROUND.mode === 'mezcla') for (const k of shuffle(KINDS)) { line = pickLine(k, ROUND.used); if (line) { kind = k; break; } }
@@ -1075,11 +1147,12 @@ function realKana() {
   if (!REAL_KANA.has(sec)) { const s = new Set(); for (const l of secLines()) for (const t of l.tk) if (t.r) s.add(t.r); REAL_KANA.set(sec, s); }
   return REAL_KANA.get(sec);
 }
-function soundOptions(l) {
+function soundOptions(l, pref) {   // pref：まず使う音の種類（弱点の練習）
   const real = realKana();
   const cands = shuffle(l.tk.map((t, i) => ({ t, i })).filter(({ t }) => CONTENT_P.includes(t.p) && t.r && moraeOf(t.r).length >= 2))
-    .map(c => { const kata = /^[ァ-ヶー]+$/.test(c.t.s); return { ...c, kata, vs: shuffle(soundAlikes(c.t.r, kata)).sort((a, b) => real.has(b[0]) - real.has(a[0])) }; })
+    .map(c => { const kata = /^[ァ-ヶー]+$/.test(c.t.s); return { ...c, kata, vs: shuffle(soundAlikes(c.t.r, kata)).sort((a, b) => (b[1] === pref) - (a[1] === pref) || real.has(b[0]) - real.has(a[0])) }; })
     .filter(c => c.vs.length);
+  if (pref) cands.sort((a, b) => (b.vs[0][1] === pref) - (a.vs[0][1] === pref));
   if (!cands.length) return null;
   const used = cands.slice(0, cands.length >= 3 ? 2 : 1), alts = [];
   for (let k = 0; alts.length < 3 && k < 12; k++) {
@@ -1107,6 +1180,7 @@ const EX = {
     const check = () => {
       const r = JA.alignJa(l.tk, ta.value);
       const pct = Math.round(r.score * 100);
+      if (ta.value.trim()) l.tk.forEach((t, i) => { if (CONTENT_P.includes(t.p) && vocabOf(l, t)?.g?.length && (r.status[i] === 'ok' || r.status[i] === 'bad')) logE('word', t.b, r.status[i] === 'ok'); });
       finish(l, 'dictado', r.score >= 0.9 ? true : r.score < 0.6 ? false : null, pct);
       ta.disabled = true; hintBtn.remove();
       w.append(verdict(pct >= 90 ? 'ok' : pct >= 60 ? 'mid' : 'bad', pct >= 90 ? `よくできました！ ${pct}%` : `${pct}%　赤いところをチェックしよう`, ta));
@@ -1123,6 +1197,8 @@ const EX = {
     const unknown = cands.filter(([t]) => !S.known.has(t.b));
     if (unknown.length) cands = unknown;
     cands = shuffle(cands).sort((a, b) => (vocabOf(l, a[0]).c ? 1 : 0) - (vocabOf(l, b[0]).c ? 1 : 0));
+    const tw = ROUND && ROUND.target && ROUND.target.word, tf = tw && blankCands(l).find(([t]) => t.b === tw);
+    if (tf) cands = [tf];
     const [target, ti] = cands[0];
     const others = shuffle((posIndex()[target.p] || []).filter(t => t.b !== target.b && t.s !== target.s && Math.abs(t.s.length - target.s.length) <= 2));
     const opts = [target.s]; for (const t of others) { if (!opts.includes(t.s)) opts.push(t.s); if (opts.length === 4) break; }
@@ -1135,7 +1211,7 @@ const EX = {
       const ok = o === target.s;
       box.querySelectorAll('.opt').forEach(b => { b.disabled = true; if (b.textContent === target.s) b.classList.add('right'); });
       if (!ok) e.currentTarget.classList.add('wrong');
-      finish(l, 'hueco', ok);
+      finish(l, 'hueco', ok); logE('word', target.b, ok);
       const v = vocabOf(l, target);
       w.append(verdict(ok ? 'ok' : 'bad', ok ? '正解！' : `正解は「${target.s}」`, sc));
       w.append(h('div', { class: 'small', style: 'margin:-4px 2px 8px' }, h('b', {}, target.b), `（${v.r}）：${v.g[0]}`));
@@ -1174,7 +1250,7 @@ const EX = {
   },
 
   oido(l, w) {
-    const so = soundOptions(l);
+    const so = soundOptions(l, ROUND && ROUND.target && ROUND.target.snd);
     if (!so) return EX.oidoMix(l, w);
     // 4つとも同じ文。音が少しちがう言葉だけ、ぜんぶの選択肢でかなで書く
     const optEl = alt => l.tk.map((t, i) => t.p === 'sp' ? '　' : !so.changed.has(i) ? t.s
@@ -1221,7 +1297,8 @@ const EX = {
     const gs = l.gr.filter(g => gQuiz(g[0]));
     const common = ['final', 'yo_ne', 'quote', 'n_desu', 'ka_q', 'kara', 'kedo', 'deshou', 'sore_ni', 'ga_aru', 'mou', 'mada', 'dake'];
     const rare = gs.filter(x => !common.includes(x[0]));
-    const g = rare.length ? pick(rare) : pick(gs);
+    const tg = ROUND && ROUND.target && ROUND.target.gram;
+    const g = (tg && gs.find(x => x[0] === tg)) || (rare.length ? pick(rare) : pick(gs));
     const G = S.grammar[g[0]];
     const piece = l.tk.slice(g[1], g[2] + 1).map(t => t.s).join('');
     const pool_ = Object.entries(S.grammar).filter(([id, v]) => id !== g[0] && !v[5] && !l.gr.some(x => x[0] === id) && v[1] !== G[1]);
@@ -1238,7 +1315,7 @@ const EX = {
       const ok = o === G[1];
       box.querySelectorAll('.opt').forEach(b => { b.disabled = true; if (b.textContent === G[1]) b.classList.add('right'); });
       if (!ok) e.currentTarget.classList.add('wrong');
-      finish(l, 'gramatica', ok);
+      finish(l, 'gramatica', ok); logE('gram', g[0], ok);
       w.append(verdict(ok ? 'ok' : 'bad', ok ? '正解！' : 'ちょっとちがいます', sc));
       w.append(h('div', { class: 'card' }, h('div', { class: 'row', style: 'gap:8px' }, lvBadge(G[3]), h('b', {}, G[0])), h('p', { style: 'margin:6px 0 10px' }, G[2]),
         h('button', { class: 'btn sm', html: ICON.book + '<span>くわしく</span>', onclick: () => grammarSheet(g[0]) })));
@@ -1316,6 +1393,8 @@ const EX = {
   kanji(l, w) {
     let cands = shuffle(kanjiCands(l));
     const unk = cands.filter(([t]) => !S.known.has(t.b)); if (unk.length) cands = unk;
+    const tw = ROUND && ROUND.target && ROUND.target.word, tf = tw && kanjiCands(l).find(([t]) => t.b === tw);
+    if (tf) cands = [tf];
     const [t, ti] = cands[0], v = vocabOf(l, t), write = Math.random() < 0.5;
     const V = [...allVocab()].filter(([b, x]) => b !== t.b && x.v.r && x.v.p !== 'pn' && [...b].some(isKanji));
     const shares = V.filter(([b]) => [...b].some(c => isKanji(c) && t.b.includes(c)));
@@ -1345,7 +1424,7 @@ const EX = {
       const ok = o === ans;
       box.querySelectorAll('.opt').forEach(b => { b.disabled = true; if (b.textContent === ans) b.classList.add('right'); });
       if (!ok) e.currentTarget.classList.add('wrong');
-      finish(l, 'kanji', ok);
+      finish(l, 'kanji', ok); logE('word', t.b, ok);
       [...new Set(t.b)].filter(isKanji).forEach(c => logE('kanji', c, ok));
       w.append(verdict(ok ? 'ok' : 'bad', ok ? '正解！' : `正解は「${ans}」`, sc));
       w.append(h('div', { class: 'card' }, h('div', { class: 'row', style: 'gap:10px;align-items:baseline' }, h('b', { style: 'font-size:22px' }, t.s), h('span', { class: 'muted' }, t.r)),
@@ -1360,7 +1439,8 @@ const EX = {
     const cands = shuffle(accentCands(l));
     // 同じ読みでアクセントがちがう言葉（橋・箸・端など）があるものを多めに出す
     const homo = cands.filter(([t]) => homophones(t.r).some(x => x.a !== vocabOf(l, t).a));
-    const [t, ti] = (homo.length && Math.random() < 0.6 ? homo : cands.filter(([t]) => !S.known.has(t.b)).concat(cands))[0];
+    const tw = ROUND && ROUND.target && ROUND.target.word;
+    const [t, ti] = cands.find(([t]) => t.b === tw) || (homo.length && Math.random() < 0.6 ? homo : cands.filter(([t]) => !S.known.has(t.b)).concat(cands))[0];
     const a = vocabOf(l, t).a, n = moraeOf(t.r).length, name = pitchName(a, n);
     // 選択肢：拍の数に合うパターン（平板・頭高・中高…・尾高）から4つまで
     const all = [...Array(n + 1).keys()];
@@ -1730,6 +1810,33 @@ function bestStreak() {
   for (const k of ks) { const d = new Date(k + 'T12:00'); run = prev && (d - prev) / DAY < 1.5 ? run + 1 : 1; best = Math.max(best, run); prev = d; }
   return best;
 }
+const SKILLS = [['聞き取り', ['oido', 'dictado', 'deep', 'passage']], ['語彙', ['hueco', 'tango']], ['文法', ['gramatica', 'ordenar']],
+  ['漢字', ['kanji']], ['アクセント', ['accent']], ['発音', ['shadowing']]];
+function skillsCard() {
+  const rows = SKILLS.map(([name, ks]) => {
+    let ok = 0, n = 0; for (const k of ks) { const x = S.kstat[k]; if (x) { ok += x.ok + 0.5 * x.mid; n += x.ok + x.mid + x.bad; } }
+    const pct = n ? Math.round(100 * ok / n) : 0;
+    return h('div', { class: 'krow' }, h('span', { class: 'kn' }, name), h('div', { class: 'kbar' }, h('i', { style: `width:${pct}%` })),
+      h('span', { class: 'kv' }, n ? `${pct}%` : '―', h('small', {}, n ? ` ${n}問` : '')));
+  });
+  // 言葉の段階：練習した文の言葉を数える
+  const byId = new Map(S.lines.map(l => [l.id, l])), seen = new Set(), heard = new Set(), said = new Set();
+  const EAR = ['oido', 'dictado', 'deep', 'hueco', 'ordenar', 'gramatica', 'accent', 'kanji', 'passage'];
+  for (const p of Object.values(S.prog)) {
+    const l = byId.get(p.id); if (!l) continue;
+    const ear = p.okk ? EAR.some(k => p.okk[k]) : p.ok > 0, sh = p.okk && p.okk.shadowing;
+    for (const t of l.tk) if (CONTENT_P.includes(t.p) && vocabOf(l, t)?.g?.length) { seen.add(t.b); if (ear) heard.add(t.b); if (sh) said.add(t.b); }
+  }
+  const memo = new Set([...S.known, ...Object.entries(S.vprog).filter(([, p]) => p.ivl >= 7).map(([b]) => b)]);
+  const steps = [['出会った', seen.size, '練習した文に出てきた'], ['覚えた', memo.size, '「覚えた」にした・単語カードで7日以上'], ['聞いてわかった', heard.size, '正解した文の中の言葉'], ['言えた', said.size, 'シャドーイングで合格した文の中の言葉']];
+  const max = Math.max(1, ...steps.map(x => x[1]));
+  return h('div', { class: 'card' }, h('h2', {}, 'スキル'),
+    h('div', { class: 'kacc' }, rows),
+    h('div', { class: 'section-title', style: 'margin-top:16px' }, '言葉の段階'),
+    h('div', { class: 'funnel' }, steps.map(([n, v, d]) => h('div', { class: 'frow' }, h('div', { class: 'fl' }, h('b', {}, n), h('small', {}, d)),
+      h('div', { class: 'fbar' }, h('i', { style: `width:${Math.round(100 * v / max)}%` })), h('span', { class: 'fv' }, fmtNum(v))))),
+    h('p', { class: 'small muted', style: 'margin:10px 0 0' }, '見たことがある ≠ 覚えた ≠ 聞いてわかる ≠ 言える。下の段階ほど、本当に使える言葉です。'));
+}
 function viewStats() {
   const root = app(); root.innerHTML = '';
   root.append(topbar('記録', { back: true }));
@@ -1762,6 +1869,9 @@ function viewStats() {
       h('div', { class: 'dgoal', style: `bottom:${100 * goal / max}%` }, h('span', {}, `目標 ${goal}`)),
       bars, tip),
     h('div', { class: 'daxis' }, h('span', {}, fmt(days[0].d)), h('span', {}, fmt(days[15].d)), h('span', {}, '今日'))));
+
+  // スキル：練習をまとめた正解率と、言葉の段階（出会った → 覚えた → 聞いてわかった → 言えた）
+  w.append(skillsCard());
 
   // 練習ごとの正解率
   const kinds = [...KINDS, 'tango', ...(S.kstat.deep ? ['deep'] : []), ...(S.kstat.passage ? ['passage'] : [])];
