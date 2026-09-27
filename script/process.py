@@ -303,6 +303,19 @@ def grammar_dict(lines):
 
 # ---------- merge lines from the same character ----------
 CONTINUES = re.compile(r"(て|で|が|けど|けれど|から|ので|のに|し|たら|ば|と|、|…|‥|っ|ながら|ても|でも|けども)$")
+def join_split_events(events, gap=120):
+    """Some subtitles (Netflix) cut one line into several back-to-back events with the same text whenever another
+    line starts or ends in between. Joins those pieces back into one event, so the line isn't repeated."""
+    out, last = [], {}   # raw text -> index in out
+    for ev, c in sorted(events, key=lambda x: x[0].start):
+        j = last.get(ev.text.strip())
+        if j is not None and ev.start <= out[j][0].end + gap:
+            out[j][0].end = max(out[j][0].end, ev.end)
+            continue
+        last[ev.text.strip()] = len(out)
+        out.append((ev, c))
+    return out
+
 def merge_events(events, offset, es_events, join=True, max_gap=700, max_ms=12000, max_chars=70, max_parts=4, is_top=lambda ev: False):
     """Merges consecutive lines from the same character into one sentence (one clip).
     The character comes from the name in brackets in the Japanese subtitles or,
@@ -368,6 +381,7 @@ def main(argv=None):
     for ev in raw:
         c = clean_line(ev.text)
         if c: events.append((ev, c))
+    events = join_split_events(events)
 
     offset = 0; es_events = []; title = a.title; amap = "0:a:0"; tlang = None
     wav = os.path.join(a.out, "_tmp.wav")
