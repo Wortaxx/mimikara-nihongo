@@ -908,10 +908,18 @@ function viewSettings() {
   const root = app(); root.innerHTML = '';
   root.append(topbar('設定', { back: true }));
   const w = h('div', { class: 'wrap settings' }); root.append(w);
+  // 好きな数を書ける欄（1〜9999、整数）
+  const num = key => {
+    const inp = h('input', { type: 'number', class: 'numin', min: 1, max: 9999, step: 1, inputmode: 'numeric', value: S.settings[key] });
+    const fix = () => { let v = Math.round(+inp.value); if (!v || v < 1) v = 1; if (v > 9999) v = 9999; inp.value = v; if (S.settings[key] !== v) { S.settings[key] = v; saveSettings(); } };
+    inp.addEventListener('change', fix); inp.addEventListener('blur', fix);
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); });
+    return h('label', { class: 'numwrap' }, inp, h('span', {}, '問'));
+  };
   const sel = (key, opts, onch) => { const s = h('select', { onchange: () => { S.settings[key] = isNaN(+s.value) ? s.value : +s.value; saveSettings(); onch && onch(); } }, opts.map(([v, t]) => h('option', { value: v, selected: String(S.settings[key]) === String(v) }, t))); return s; };
   w.append(h('div', { class: 'card' }, cardHead(ICON.target, '学習', 1),
-    setRow(ICON.flame, '一日の目標', '毎日これだけ答えると、連続日数が続きます', sel('goal', [[10, '10問'], [20, '20問'], [30, '30問'], [50, '50問']])),
-    setRow(ICON.replay, '1ラウンドの問題数', '練習1回あたりの問題の数', sel('roundLen', [[5, '5問'], [10, '10問'], [20, '20問']])),
+    setRow(ICON.flame, '一日の目標', '毎日これだけ答えると、連続日数が続きます（1〜9999）', num('goal')),
+    setRow(ICON.replay, '1ラウンドの問題数', '練習1回あたりの問題の数（1〜9999）', num('roundLen')),
     setRow(ICON.ear, 'とても短い文もふくめる', 'ハァ…、ん？ などの短い文も練習に出す', toggle('short')),
     setRow(ICON.gram, '文法クイズのレベル', '文法の練習で出す JLPT のレベル', glvChips(), true)));
   w.append(h('div', { class: 'card' }, cardHead(ICON.eye, '表示', 2),
@@ -944,7 +952,7 @@ function viewSettings() {
 }
 
 // ================= アプリの更新 =================
-const APP_VERSION = 23; // sw.js の CACHE（animejp-v23）と同じ番号にする
+const APP_VERSION = 24; // sw.js の CACHE（animejp-v24）と同じ番号にする
 async function latestVersion() {
   const txt = await fetch('sw.js?nc=' + Date.now(), { cache: 'no-store' }).then(r => r.text());
   const m = txt.match(/animejp-v(\d+)/); return m ? +m[1] : 0;

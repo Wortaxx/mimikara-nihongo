@@ -445,3 +445,6 @@ select{-webkit-appearance:none;appearance:none;padding-right:34px;background-ima
 .fbar{height:10px;border-radius:6px;background:var(--surface2);overflow:hidden}
 .fbar i{display:block;height:100%;background:var(--t4);border-radius:6px}
 .fv{font-variant-numeric:tabular-nums;font-weight:700;min-width:3ch;text-align:right}
+.numwrap{display:inline-flex;align-items:center;gap:6px}
+.numin{width:5.5em;font-size:16px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--text);text-align:right;font-variant-numeric:tabular-nums}
+.numin:focus{outline:2px solid var(--accent);outline-offset:0}

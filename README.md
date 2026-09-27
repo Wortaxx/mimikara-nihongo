@@ -133,7 +133,7 @@ flowchart LR
 
 ### Practice drills (練習)
 
-Every drill plays the real clip of the line. You can replay it (もう一度), change the speed (the button with the current speed, such as **1×**: 0.5×, 0.65×, 0.75×, 0.85×, 1×, 1.1× or 1.25×), or hide the video and keep only the audio (映像). **自動** (automatic) picks the speed from your progress on each line: 0.75× for lines you can't catch yet, 0.85× once you have got them right, and full speed once you know them well, so each line speeds up as you learn it. Each round has 5, 10 or 20 questions.
+Every drill plays the real clip of the line. You can replay it (もう一度), change the speed (the button with the current speed, such as **1×**: 0.5×, 0.65×, 0.75×, 0.85×, 1×, 1.1× or 1.25×), or hide the video and keep only the audio (映像). **自動** (automatic) picks the speed from your progress on each line: 0.75× for lines you can't catch yet, 0.85× once you have got them right, and full speed once you know them well, so each line speeds up as you learn it. Each round has as many questions as you set in settings (10 by default).
 
 After each answer the full line is shown, with the speaker, the translation, the grammar patterns and their JLPT level. Tap any word to see its meaning, and any grammar chip for an explanation.
 
@@ -461,8 +461,8 @@ Open it with the ⚙ button on the home screen. Settings are grouped into cards,
 
 | Card | Setting | Meaning |
 |---|---|---|
-| **学習** (study) | 一日の目標 | Daily goal: 10, 20, 30 or 50 questions. |
-| | 1ラウンドの問題数 | Questions per round: 5, 10 or 20. |
+| **学習** (study) | 一日の目標 | Daily goal: type any number of questions from 1 to 9999. |
+| | 1ラウンドの問題数 | Questions per round: any number from 1 to 9999. |
 | | とても短い文もふくめる | Include very short lines such as ハァ… or ん？. |
 | | 文法クイズのレベル | JLPT levels used in the grammar drill. |
 | **表示** (display) | ふりがなを表示する | Show furigana. |
