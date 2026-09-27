@@ -387,3 +387,7 @@ select{-webkit-appearance:none;appearance:none;padding-right:34px;background-ima
 /* subtítulo arriba cuando el episodio lo pone arriba; sube si están los controles */
 .lv-stage:fullscreen .lv-sub.top,.lv-stage.fs .lv-sub.top{top:6%;bottom:auto}
 .lv-stage.ctl .lv-sub:not(.top),.lv-stage.paused .lv-sub:not(.top){bottom:16%}
+/* 聞き取り：音が少しちがう言葉（答えたあとに色がつく） */
+.opts.done .opt .df{text-decoration:underline;text-underline-offset:4px}
+.opts.done .opt .df.ch{color:var(--bad);font-weight:700}
+.opts.done .opt.right .df{color:var(--ok);font-weight:700}

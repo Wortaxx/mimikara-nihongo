@@ -172,7 +172,7 @@ Tap the phrase blocks in the right order. Tap a block in the answer to put it ba
   <img src="docs/screenshots/07-listening.png" width="260" alt="Listening">
 </p>
 
-Choose which of four sentences you heard. The wrong options are sentences of a similar length, so you have to really listen.
+Choose which of four sentences you heard. All four are **the same sentence with one small sound changed**: a small っ added or dropped (いった / いた), a long vowel stretched or cut (おばさん / おばあさん), a ゛ added or removed (きょう / ぎょう), ゃゅょ made big (びょういん / びよういん) or an ん dropped. The words that change are written in kana in every option, so the spelling gives nothing away, and real words are preferred as traps. After you answer, the sound that differed is underlined in each option. Sentences with no word that can be changed this way fall back to four different sentences of similar length.
 
 #### Grammar (文法)
 

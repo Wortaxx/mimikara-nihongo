@@ -705,7 +705,7 @@ function viewSettings() {
 }
 
 // ================= アプリの更新 =================
-const APP_VERSION = 15; // sw.js の CACHE（animejp-v15）と同じ番号にする
+const APP_VERSION = 16; // sw.js の CACHE（animejp-v16）と同じ番号にする
 async function latestVersion() {
   const txt = await fetch('sw.js?nc=' + Date.now(), { cache: 'no-store' }).then(r => r.text());
   const m = txt.match(/animejp-v(\d+)/); return m ? +m[1] : 0;
@@ -866,6 +866,56 @@ function verdict(kind, text, target) {
   return h('div', { class: 'verdict ' + kind, html: ic + `<span>${esc(text)}</span>` });
 }
 
+// 聞き取りの選択肢：同じ文で、1語だけ音が少しちがうもの（っ・のばす音・゛・ゃゅょ・ん）
+const KANA_V = { a: 'あかさたなはまやらわがざだばぱゃぁ', i: 'いきしちにひみりぎじぢびぴぃ', u: 'うくすつぬふむゆるぐずづぶぷゅぅ', e: 'えけせてねへめれげぜでべぺぇ', o: 'おこそとのほもよろをごぞどぼぽょぉ' };
+const LONG_OF = { a: 'あ', i: 'い', u: 'う', e: 'い', o: 'う' }, LONG_ALT = { e: 'え', o: 'お' };
+const DAK = {}; 'かが きぎ くぐ けげ こご さざ しじ すず せぜ そぞ ただ てで とど はば ひび ふぶ へべ ほぼ ぱば ぴび ぷぶ ぺべ ぽぼ'.split(' ').forEach(([a, b]) => { DAK[a] ??= b; DAK[b] ??= a; });
+const SMALL_Y = { や: 'ゃ', ゆ: 'ゅ', よ: 'ょ', ゃ: 'や', ゅ: 'ゆ', ょ: 'よ' };
+const moraeOf = k => k.match(/[ぁ-ゖ][ゃゅょぁぃぅぇぉ]?|./g) || [];
+const vowelOf = m => { const c = m[m.length - 1]; return Object.keys(KANA_V).find(v => KANA_V[v].includes(c)) || ''; };
+const hiraToKata = s => s.replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60));
+function soundAlikes(k, kata) {
+  const m = moraeOf(k), out = new Set();
+  const put = (i, n, ...ins) => out.add([...m.slice(0, i), ...ins, ...m.slice(i + n)].join(''));
+  m.forEach((x, i) => {
+    const v = vowelOf(x), nx = m[i + 1];
+    if (x === 'っ') put(i, 1);
+    else if (i > 0 && 'かきくけこさしすせそたちつてとぱぴぷぺぽ'.includes(x[0]) && !'っんー'.includes(m[i - 1])) put(i, 0, 'っ');
+    if (v && x !== 'っ') {
+      if (nx === 'ー' || nx === LONG_OF[v] || nx === LONG_ALT[v]) put(i + 1, 1);
+      // のばす音を足すのは、語の途中で、っ・ん の前でなく、すでにのばした音でもないとき
+      else if (x !== 'ん' && nx && !'っんー'.includes(nx) && !(i > 0 && (x === LONG_OF[vowelOf(m[i - 1])] || x === LONG_ALT[vowelOf(m[i - 1])]))) put(i + 1, 0, kata ? 'ー' : LONG_OF[v]);
+    }
+    if (DAK[x[0]] && m[i - 1] !== 'っ') put(i, 1, DAK[x[0]] + x.slice(1));
+    if (x.length === 2 && SMALL_Y[x[1]]) put(i, 1, x[0], SMALL_Y[x[1]]);
+    else if (nx && 'やゆよ'.includes(nx) && 'きしちにひみりぎじびぴ'.includes(x)) put(i, 2, x + SMALL_Y[nx]);
+    if (x === 'ん' && m.length > 2) put(i, 1);
+  });
+  out.delete(k);
+  return [...out].filter(s => s && !/^[っんー]/.test(s));
+}
+// 本当にある言葉の読み（まちがいの選択肢に、実在する言葉を優先して使う）
+const REAL_KANA = new Map();
+function realKana() {
+  const sec = SEC();
+  if (!REAL_KANA.has(sec)) { const s = new Set(); for (const l of secLines()) for (const t of l.tk) if (t.r) s.add(t.r); REAL_KANA.set(sec, s); }
+  return REAL_KANA.get(sec);
+}
+function soundOptions(l) {
+  const real = realKana();
+  const cands = shuffle(l.tk.map((t, i) => ({ t, i })).filter(({ t }) => CONTENT_P.includes(t.p) && t.r && moraeOf(t.r).length >= 2))
+    .map(c => { const kata = /^[ァ-ヶー]+$/.test(c.t.s); return { ...c, kata, vs: shuffle(soundAlikes(c.t.r, kata)).sort((a, b) => real.has(b) - real.has(a)) }; })
+    .filter(c => c.vs.length);
+  if (!cands.length) return null;
+  const used = cands.slice(0, cands.length >= 3 ? 2 : 1), alts = [];
+  for (let k = 0; alts.length < 3 && k < 12; k++) {
+    const c = used[k % used.length], v = c.vs.shift();
+    if (v) alts.push({ i: c.i, k: c.kata ? hiraToKata(v) : v });
+  }
+  if (alts.length < 3) return null;
+  return { changed: new Set(used.map(c => c.i)), kata: Object.fromEntries(used.map(c => [c.i, c.kata])), alts };
+}
+
 const EX = {
   dictado(l, w) {
     w.append(playerEl(l));
@@ -950,6 +1000,28 @@ const EX = {
   },
 
   oido(l, w) {
+    const so = soundOptions(l);
+    if (!so) return EX.oidoMix(l, w);
+    // 4つとも同じ文。音が少しちがう言葉だけ、ぜんぶの選択肢でかなで書く
+    const optEl = alt => l.tk.map((t, i) => t.p === 'sp' ? '　' : !so.changed.has(i) ? t.s
+      : h('span', { class: 'df' + (alt && alt.i === i ? ' ch' : '') }, alt && alt.i === i ? alt.k : so.kata[i] ? t.s : t.r));
+    const opts = shuffle([null, ...so.alts]);
+    w.append(playerEl(l));
+    w.append(h('div', { class: 'qtitle' }, 'どの文が聞こえた？（ちがうのは小さな音だけ）'));
+    const box = h('div', { class: 'opts' });
+    opts.forEach((o, k) => box.append(h('button', { class: 'opt big', onclick: e => {
+      const ok = o === null;
+      box.classList.add('done'); box.querySelectorAll('.opt').forEach(x => x.disabled = true);
+      e.currentTarget.classList.add(ok ? 'right' : 'wrong'); box.children[opts.indexOf(null)].classList.add('right');
+      finish(l, 'oido', ok);
+      w.append(verdict(ok ? 'ok' : 'bad', ok ? '正解！' : '正解は緑の文です。赤い所の音がちがいます', box), resultBlock(l)); nextBar(w);
+    } }, optEl(o))));
+    w.append(box);
+    setBar(w, h('button', { class: 'btn ghost', onclick: () => [...box.children].find((b, k) => opts[k] !== null)?.click() }, 'わからない'));
+  },
+
+  // 小さな音のちがいが作れない文：ほかの文からえらぶ（前のやり方）
+  oidoMix(l, w) {
     const len = flatLen(l);
     const others = shuffle(secLines().filter(x => x.id !== l.id && x.t !== l.t && Math.abs(flatLen(x) - len) <= Math.max(3, len * 0.35)));
     const opts = shuffle([l, ...others.slice(0, 3)]);
